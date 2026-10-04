@@ -76,6 +76,33 @@ label{display:block;font-size:.82rem;font-weight:800;margin:8px 0 3px}
 .empty{color:var(--muted);padding:6px 0}
 .hidden{display:none}
 footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
+
+.rankb{display:inline-grid;place-items:center;min-width:30px;height:30px;border-radius:9px;background:var(--ink);color:var(--card);font-family:"Bricolage Grotesque",sans-serif;font-weight:800;margin-right:8px;font-size:.95rem}
+.rank1{background:#C99A06;color:#1B1405}.rank2{background:#8A97A3;color:#0F1418}.rank3{background:#A8643A;color:#fff}
+.stars{color:var(--amber);font-size:.85rem;letter-spacing:1px}
+.redcard{border:2px solid var(--red);background:color-mix(in srgb,var(--red) 7%,var(--card))}
+.sellban{background:var(--red);color:#fff;font-weight:800;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:.9rem}
+.tkbtn{background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.tkbtn b{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.hist{font-size:.85rem;color:var(--muted)}
+.chip{display:inline-block;font-size:.75rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-left:6px;color:var(--muted)}
+.chip.on{background:var(--green);color:#fff;border-color:var(--green)}
+.sugwrap{position:relative}
+.sug{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden}
+.sug button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--line);padding:10px 12px;font:inherit;color:var(--ink);cursor:pointer}
+.sug button:first-child{border-top:none}
+.sug button:hover,.sug button:focus{background:var(--soft)}
+.sug small{color:var(--muted)}
+#sheetBg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:88vh;overflow:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px));max-width:680px;margin:0 auto}
+#sheet .close{position:sticky;top:0;float:right}
+.chart{width:100%;height:auto;display:block;margin-top:6px}
+.chart text{font-family:"Nunito Sans",sans-serif;fill:var(--muted)}
+.newsl{list-style:none;padding:0;margin:6px 0 0}
+.newsl li{padding:7px 0;border-top:1px solid var(--line);font-size:.88rem}
+.guide h4{margin:12px 0 4px;font-size:.95rem}
+.guide ul{margin:0;padding-left:18px;font-size:.9rem}
+.guide li{padding:2px 0}
 </style>
 </head>
 <body>
@@ -88,7 +115,7 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
 </div>
 <div id="app" class="hidden">
 <h1>Season Watch</h1>
-<p class="asof"><span id="asof"></span> <span class="muted">· updates every morning</span> <button class="b g" id="logout" style="padding:4px 10px;font-size:.8rem;margin-left:6px">Sign out</button></p>
+<p class="asof"><span id="asof"></span> <button class="b g" id="logout" style="padding:4px 10px;font-size:.8rem;margin-left:6px">Sign out</button></p>
 <nav role="tablist">
  <button role="tab" data-tab="cyc" aria-selected="true">Cycles</button>
  <button role="tab" data-tab="mom" aria-selected="false">Momentum</button>
@@ -97,25 +124,29 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
 </nav>
 
 <section id="tab-cyc">
- <h2>Happening this month</h2>
- <p class="muted">Within each group, the stock with the most bars swings the most with the cycle.</p>
+ <h2>Current cycles</h2>
+ <p class="muted">#1, #2, #3 mark the three strongest cycles (current and upcoming), based on how their stocks did in the same weeks over the last 10 years. Tap a stock to see its pattern.</p>
  <div id="cycNow"></div>
- <h2>Next cycles: when to buy</h2>
+ <h2>Upcoming cycles</h2>
  <div id="cycNext"></div>
+ <h2 id="peakH">Peaked cycles: sell</h2>
+ <div id="cycPeak"></div>
+ <h2>Cycle guide</h2>
+ <div class="card guide" id="guide"></div>
 </section>
 
 <section id="tab-mom" class="hidden">
- <h2>Stocks with momentum</h2>
- <p class="muted">The bar shows roughly how much of the move may already be done. These are estimates, not promises.</p>
+ <h2>Momentum: highest potential first</h2>
+ <p class="muted">Potential = how much more a typical rally of this size could still run. Estimates, not promises.</p>
  <div id="momList"></div>
- <h2>Gold and copper</h2>
+ <h2>Gold, copper and silver</h2>
  <div id="metals"></div>
 </section>
 
 <section id="tab-watch" class="hidden">
  <h2>Search</h2>
- <input id="q" placeholder="Type a name or ticker, e.g. Apple or AAPL" autocomplete="off">
- <div id="qres"></div>
+ <div class="sugwrap"><input id="q" placeholder="Company name or code, e.g. Apple or AAPL" autocomplete="off"><div class="sug hidden" id="qSug"></div></div>
+ <p class="muted" style="margin-top:6px">Tap a suggestion to add it to your watchlist.</p>
  <h2>My watchlist</h2>
  <div id="wl"></div>
 </section>
@@ -125,98 +156,210 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
  <div class="total" id="totals"></div>
  <h2>Add a purchase</h2>
  <div class="card"><div class="form">
-  <div><label for="bTk">Stock</label><input id="bTk" placeholder="e.g. TGT" maxlength="8" autocapitalize="characters"></div>
+  <div class="sugwrap"><label for="bTk">Stock (name or code)</label><input id="bTk" placeholder="e.g. Target or TGT" autocomplete="off"><div class="sug hidden" id="bSug"></div></div>
   <div><label for="bPx">Buy price ($)</label><input id="bPx" type="number" inputmode="decimal" step="any" min="0"></div>
   <div><label for="bAmt">Amount ($)</label><input id="bAmt" type="number" inputmode="decimal" step="any" min="0" value="500"></div>
   <div><label for="bDt">Date</label><input id="bDt" type="date"></div>
- </div><div class="actions"><button class="b" id="bAdd">Add purchase</button></div><p class="muted" id="bMsg"></p></div>
+ </div><p class="muted" id="bName"></p><div class="actions"><button class="b" id="bAdd">Add purchase</button></div><p class="muted" id="bMsg"></p></div>
  <h2>Holding</h2>
  <div id="holding"></div>
  <h2>Sold</h2>
  <div id="soldList"></div>
 </section>
-
-<h2>Latest news used</h2>
-<div class="card"><ul class="news" id="news"></ul></div>
-
 </div>
-<footer><span id="saveNote"></span><br>Cycle and momentum views are estimates based on past patterns and recent news. Not financial advice.</footer>
+<footer><span id="saveNote"></span><br>Cycle and momentum views are estimates based on past patterns and recent prices. Not financial advice.</footer>
 </main>
+<div id="sheetBg" class="hidden"></div>
+<div id="sheet" class="hidden" role="dialog" aria-modal="true"></div>
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <script>
-const DIR={AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",META:"Meta (Facebook)",AMZN:"Amazon",NVDA:"Nvidia",TSLA:"Tesla",NFLX:"Netflix",AMD:"AMD",INTC:"Intel",MU:"Micron",AVGO:"Broadcom",JPM:"JPMorgan",BAC:"Bank of America",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",XOM:"Exxon Mobil",CVX:"Chevron",VLO:"Valero",DAL:"Delta Air Lines",UAL:"United Airlines",BKNG:"Booking.com",MAR:"Marriott",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",COPX:"Copper miners fund",CPER:"Copper fund",NEM:"Newmont (gold)",GLD:"Gold fund",SLV:"Silver fund",QQQ:"Top 100 US tech",VOO:"Top 500 US companies",SPY:"S&P 500 fund",IWM:"Small US companies",ITB:"Homebuilders fund",XLE:"Energy fund",SGOV:"T-bill fund (safe)",EQT:"EQT (natural gas)",KO:"Coca-Cola",PEP:"PepsiCo",DIS:"Disney",NKE:"Nike",LULU:"Lululemon",HRB:"H&R Block",UBER:"Uber",V:"Visa"};
-let M={asOf:"",asOfLabel:"Loading...",cycles:[],momentum:[],metals:[],prices:{},news:[]}, U={watch:[],buys:[],manual:{}};
+const DIR={AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",AMZN:"Amazon",META:"Meta (Facebook)",NVDA:"Nvidia",TSLA:"Tesla",AVGO:"Broadcom",AMD:"AMD",INTC:"Intel",MU:"Micron",QCOM:"Qualcomm",TXN:"Texas Instruments",ARM:"Arm Holdings",TSM:"Taiwan Semiconductor",ASML:"ASML",ORCL:"Oracle",CRM:"Salesforce",ADBE:"Adobe",NOW:"ServiceNow",PLTR:"Palantir",SNOW:"Snowflake",SHOP:"Shopify",UBER:"Uber",ABNB:"Airbnb",NFLX:"Netflix",DIS:"Disney",SPOT:"Spotify",PYPL:"PayPal",V:"Visa",MA:"Mastercard",AXP:"American Express",JPM:"JPMorgan Chase",BAC:"Bank of America",WFC:"Wells Fargo",C:"Citigroup",GS:"Goldman Sachs",MS:"Morgan Stanley",SCHW:"Charles Schwab",BRK_B:"Berkshire Hathaway",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",TJX:"TJX (TJ Maxx)",NKE:"Nike",LULU:"Lululemon",SBUX:"Starbucks",MCD:"McDonald's",CMG:"Chipotle",KO:"Coca-Cola",PEP:"PepsiCo",PG:"Procter & Gamble",CL:"Colgate-Palmolive",PM:"Philip Morris",JNJ:"Johnson & Johnson",PFE:"Pfizer",MRK:"Merck",LLY:"Eli Lilly",ABBV:"AbbVie",UNH:"UnitedHealth",AMGN:"Amgen",NVO:"Novo Nordisk",XOM:"Exxon Mobil",CVX:"Chevron",COP:"ConocoPhillips",OXY:"Occidental Petroleum",VLO:"Valero",MPC:"Marathon Petroleum",PSX:"Phillips 66",EQT:"EQT (natural gas)",AR:"Antero Resources",SLB:"Schlumberger",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",NEM:"Newmont (gold)",GOLD:"Barrick Gold",AA:"Alcoa (aluminium)",NUE:"Nucor (steel)",CAT:"Caterpillar",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",MOS:"Mosaic",BA:"Boeing",GE:"GE Aerospace",LMT:"Lockheed Martin",RTX:"RTX (Raytheon)",HON:"Honeywell",UPS:"UPS",FDX:"FedEx",DAL:"Delta Air Lines",UAL:"United Airlines",AAL:"American Airlines",LUV:"Southwest Airlines",BKNG:"Booking.com",MAR:"Marriott",HLT:"Hilton",RCL:"Royal Caribbean",CCL:"Carnival",CARR:"Carrier",TT:"Trane Technologies",LII:"Lennox",HRB:"H&R Block",INTU:"Intuit (TurboTax)",PLNT:"Planet Fitness",DHI:"D.R. Horton",LEN:"Lennar",F:"Ford",GM:"General Motors",T:"AT&T",VZ:"Verizon",NEE:"NextEra Energy",DUK:"Duke Energy",QQQ:"Top 100 US tech fund",VOO:"Top 500 US companies fund",SPY:"S&P 500 fund",VTI:"Total US market fund",IWM:"Small US companies fund",DIA:"Dow Jones fund",SMH:"Chip stocks fund",XLE:"Energy fund",XLF:"Banks fund",XLU:"Utilities fund",XLV:"Healthcare fund",XRT:"Retail fund",ITB:"Homebuilders fund",VNQ:"Property fund",GLD:"Gold fund",SLV:"Silver fund",CPER:"Copper fund",COPX:"Copper miners fund",GDX:"Gold miners fund",USO:"Oil fund",UNG:"Natural gas fund",SGOV:"T-bill fund (safe)",BIL:"T-bill fund (safe)",TLT:"Long US bonds fund"};
+delete DIR.BRK_B; DIR["BRK-B"]="Berkshire Hathaway";
+const FED=["2026-10-28","2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-09","2027-07-28","2027-09-15","2027-10-27","2027-12-08"];
+const HOLIDAYS=[["2026-11-26","Thanksgiving"],["2026-12-25","Christmas"],["2027-01-01","New Year"],["2027-01-18","MLK Day"],["2027-02-15","Presidents' Day"],["2027-03-26","Good Friday"],["2027-05-31","Memorial Day"],["2027-06-18","Juneteenth"],["2027-07-05","Independence Day"],["2027-09-06","Labor Day"],["2027-11-25","Thanksgiving"],["2027-12-24","Christmas"]];
+const INAUGURATION_YEAR=2025;
+let M={asOf:"",asOfLabel:"Loading...",cycles:[],momentum:[],metals:[],season:{},prices:{},newsBy:{},pricesAt:null}, U={watch:[],buys:[],manual:{}};
 const $=id=>document.getElementById(id);
 const money=n=>(n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=n=>(n>0?"+":"")+n.toFixed(1)+"%";
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const STLABEL={early:"Early: good time to look",mid:"In progress",peak:"Near peak: don't chase",over:"Over",coming:"Coming next",late:"Late stage",steady:"Steady",cooling:"Cooling: momentum paused"};
+const STLABEL={early:"Early: good time to look",mid:"In progress",peak:"Peaked: sell",over:"Ended: sell",coming:"Coming next",late:"Late stage",steady:"Steady",cooling:"Cooling"};
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const C=window.SW_CONFIG||{};
 const sbc=window.supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY);
-const todayIso=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+const TODAY=new Date(); TODAY.setHours(0,0,0,0);
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const todayIso=()=>iso(new Date());
 async function q(p){const {data,error}=await p; if(error){console.error(error); throw error} return data}
 function fmtD(s){if(!s)return"";const [y,m,d]=s.slice(0,10).split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}
+
+// ---------- lookups ----------
 function priceOf(tk){const m=U.manual[tk],s=M.prices[tk];
   if(m&&(!s||m.d>s.d))return{p:m.p,src:"typed by you "+fmtD(m.d)};
-  if(s)return{p:s.p,src:"close "+fmtD(s.d)};return null}
+  if(s)return{p:s.p,src:s.d>M.asOf?"latest, about 15 min delayed":"close "+fmtD(s.d)};return null}
 function nameOf(tk){for(const c of M.cycles)for(const b of c.basket)if(b.tk===tk)return b.name;for(const x of M.momentum)if(x.tk===tk)return x.name;return DIR[tk]||tk}
-function bars(n){return `<span class="bars" aria-label="${n} of 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`}
-function planBox(e){if(!e)return"";const mid=(e[0]+e[1])/2;return `<div class="plan"><div>Buy if it dips to<b>$${e[0]}–${e[1]}</b></div><div class="t">Target +6%<b>${money(mid*1.06)}</b></div><div class="s">Stop-loss −5%<b>${money(mid*0.95)}</b></div></div>`}
+function cyclesOf(tk){return M.cycles.filter(c=>c.basket.some(b=>b.tk===tk)).map(c=>({c,b:c.basket.find(b=>b.tk===tk)}))}
+function mainCycle(tk){const l=cyclesOf(tk),pr={early:0,mid:0,peak:1,over:1,coming:2};l.sort((a,b)=>pr[a.c.status]-pr[b.c.status]||b.c.strength-a.c.strength);return l[0]||null}
+function momOf(tk){return M.momentum.find(x=>x.tk===tk)||null}
+function planFor(tk){const mc=mainCycle(tk);if(mc)return{stop:mc.b.stop,target:mc.b.target};const m=momOf(tk);if(m)return{stop:m.stop,target:m.target};return{stop:5,target:6}}
+function newsOf(tk){const cut=iso(new Date(TODAY.getTime()-3*86400000));return (M.newsBy[tk]||[]).filter(n=>n.d>=cut)}
+function cycleMonths(c){const sm=+c.start.slice(0,2),em=+c.end.slice(0,2),s=new Set();let m=sm;for(let i=0;i<12;i++){s.add(m-1);if(m===em)break;m=m%12+1}return s}
+
+// ---------- small pieces ----------
+function stars(n){return `<span class="stars" aria-label="strength ${n} of 5">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`}
+function rankB(r){return r?`<span class="rankb rank${r}">#${r}</span>`:""}
 function watchBtn(tk){const on=U.watch.includes(tk);return `<button class="b g" data-w="${tk}">${on?"✓ Watching":"+ Watch"}</button>`}
-const CAUTION_COMMON="Check today's news and the results date before buying, keep each buy to about $500, and always set the −5% stop-loss.";
-function boxCaution(t){return `<div class="caution"><b>⚠ Caution:</b> ${t} ${CAUTION_COMMON}</div>`}
-function stageCaution(status){const t={peak:"Near its peak: buying now risks catching the top.",cooling:"The move has stalled: prices often drift lower from here.",late:"Late in the move: a 10% drop can come quickly."}[status];return t?`<div class="caution"><b>⚠</b> ${t}</div>`:""}
-function stockRow(b,c,i){const pr=priceOf(b.tk);
-  return `<div class="stock"><div class="srow"><div><span class="rank">#${i+1}</span> <b>${b.tk}</b> ${esc(b.name)}${bars(b.cyc)}</div><div class="price">${pr?money(pr.p):""}</div></div>
-   <p class="muted">${esc(b.note)}${pr?` <span>(${pr.src})</span>`:""}</p>${planBox(b.entry)}
-   <div class="actions">${watchBtn(b.tk)}</div>
-   <details class="more"><summary>Company results</summary><p>${esc(b.results)}</p></details></div>`}
+function tkBtn(tk,name,cyc){return `<button class="tkbtn" data-open="${tk}"${cyc?` data-cyc="${cyc}"`:""}><b>${tk}</b> ${esc(name)}</button>`}
+function planBox(entry,stop,target){if(!entry)return"";const mid=(entry[0]+entry[1])/2;
+  return `<div class="plan"><div>Buy on dip to<b>$${entry[0].toFixed(2)}–${entry[1].toFixed(2)}</b></div><div class="t">Target +${target}%<b>${money(mid*(1+target/100))}</b></div><div class="s">Stop-loss −${stop}%<b>${money(mid*(1-stop/100))}</b></div></div>`}
+const CAUTION_COMMON="Check the 3-day news and the results date before buying, keep each buy small, and always set the stop-loss.";
+const boxCaution=t=>`<div class="caution"><b>⚠ Caution:</b> ${t} ${CAUTION_COMMON}</div>`;
+function newsChip(tk){const n=newsOf(tk).length;return n?`<span class="chip">${n} news</span>`:""}
+
+function barChart(vals,labels,hl){
+  const W=320,H=150,pad=18,bw=(W-pad*2)/vals.length,mx=Math.max(1,...vals.map(v=>Math.abs(v))),mid=(H-28)/2+6;
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img"><line x1="${pad}" x2="${W-pad}" y1="${mid}" y2="${mid}" stroke="var(--line)"/>`;
+  vals.forEach((v,i)=>{const h=Math.abs(v)/mx*(mid-8),x=pad+i*bw+bw*0.15,y=v>=0?mid-h:mid,op=hl&&!hl.has(i)?0.3:1;
+    s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${Math.max(1,h).toFixed(1)}" rx="2" fill="${v>=0?"var(--green)":"var(--red)"}" opacity="${op}"><title>${labels[i]}: ${pct(v)}</title></rect>`;
+    s+=`<text x="${(pad+i*bw+bw/2).toFixed(1)}" y="${H-6}" font-size="${vals.length>10?8:9}" text-anchor="middle">${labels[i]}</text>`;
+    if(vals.length<=12)s+=`<text x="${(pad+i*bw+bw/2).toFixed(1)}" y="${(v>=0?y-3:y+h+10).toFixed(1)}" font-size="8" text-anchor="middle">${v.toFixed(0)}</text>`;});
+  return s+`</svg>`;
+}
+
+// ---------- Cycles tab ----------
+function stockRow(b,c){const pr=priceOf(b.tk),red=["peak","over"].includes(c.status),n=b.hist.length;
+  return `<div class="stock"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${newsChip(b.tk)}</div><div class="price">${pr?money(pr.p):""}</div></div>
+   <p class="hist">${n?`Up in ${b.hist.filter(x=>x.r>0).length} of ${n} years in this window · median ${pct(b.med)}`:"Not enough history"}${pr?` · ${pr.src}`:""}</p>
+   ${red?"":planBox(b.entry,b.stop,b.target)}
+   <div class="actions">${watchBtn(b.tk)}<button class="b g" data-open="${b.tk}" data-cyc="${c.id}">See pattern</button></div></div>`}
+function cycleCard(c){const red=["peak","over"].includes(c.status);
+  return `<div class="card cycle s-${c.status}${red?" redcard":""}"><div class="srow"><h3>${rankB(c.rank)}${esc(c.name)}</h3><span class="st">${STLABEL[c.status]}</span></div>
+   <div style="margin-top:4px">${stars(c.stars)} <span class="muted">${c.group==="calendar"?"Whole-market calendar pattern":"Industry season"}</span></div>
+   ${red?`<div class="sellban">⚠ This cycle has ${c.status==="over"?"ended":"peaked"}. If you hold these stocks, sell on any up day.</div>`:""}
+   <p class="muted">${esc(c.why)}</p>
+   <dl class="facts"><dt>Cycle</dt><dd>${esc(c.period)}</dd><dt>Peak</dt><dd>${esc(c.peak)}</dd><dt>Buy</dt><dd>${esc(c.buy)}</dd><dt>Sell by</dt><dd>${esc(c.sellBy)}</dd></dl>
+   ${c.basket.map(b=>stockRow(b,c)).join("")}</div>`}
 function renderCycles(){
-  const card=c=>`<div class="card cycle s-${c.status}"><div class="srow"><h3>${esc(c.name)}</h3><span class="st">${STLABEL[c.status]||c.status}</span></div>
-    <p class="muted">${esc(c.why)}</p>
-    <dl class="facts"><dt>Cycle</dt><dd>${esc(c.period)}</dd><dt>Peak</dt><dd>${esc(c.peak)}</dd><dt>Buy</dt><dd>${esc(c.buy)}</dd><dt>Sell by</dt><dd>${esc(c.sellBy)}</dd></dl>
-    ${stageCaution(c.status)}${c.basket.slice().sort((a,b)=>b.cyc-a.cyc).map((b,i)=>stockRow(b,c,i)).join("")}</div>`;
-  const now=M.cycles.filter(c=>c.now), next=M.cycles.filter(c=>!c.now);
-  $("cycNow").innerHTML=now.length?boxCaution("Past seasonal patterns, not promises. In many years they don't happen.")+now.map(card).join(""):`<p class="empty">No active cycles right now.</p>`;
-  $("cycNext").innerHTML=next.length?boxCaution("Not started yet: buying too early can tie up money for weeks.")+next.map(card).join(""):`<p class="empty">No cycles starting in the next 60 days.</p>`;
+  const by=(a,b)=>(a.rank||9)-(b.rank||9)||b.strength-a.strength;
+  const now=M.cycles.filter(c=>["early","mid"].includes(c.status)).sort(by);
+  const next=M.cycles.filter(c=>c.status==="coming").sort(by);
+  const peak=M.cycles.filter(c=>["peak","over"].includes(c.status));
+  $("cycNow").innerHTML=now.length?boxCaution("Past seasonal patterns, not promises. In many years they don't happen.")+now.map(cycleCard).join(""):`<p class="empty">No cycle is running right now.</p>`;
+  $("cycNext").innerHTML=next.length?boxCaution("Not started yet: buying too early can tie up money for weeks.")+next.map(cycleCard).join(""):`<p class="empty">Nothing starts in the next 60 days.</p>`;
+  $("peakH").classList.toggle("hidden",!peak.length);
+  $("cycPeak").innerHTML=peak.map(cycleCard).join("");
+  renderGuide();
 }
+function renderGuide(){
+  const m=TODAY.getMonth()+1,d=TODAY.getDate(),md=m*100+d,on=t=>`<span class="chip on">${t}</span>`;
+  const term=((TODAY.getFullYear()-INAUGURATION_YEAR)%4)+1,termTxt={1:"year 1 (mixed)",2:"year 2 (historically the weakest)",3:"year 3 (historically the strongest)",4:"year 4 (usually positive)"}[term];
+  const nh=HOLIDAYS.find(h=>h[0]>=todayIso()),nf=FED.find(f=>f>=todayIso());
+  $("guide").innerHTML=`
+   <h4>1. Calendar patterns (whole market)</h4><ul>
+    <li><b>"Sell in May and go away":</b> November–April has been stronger than May–October. ${(m>=11||m<=4)?on("Strong season now"):"<span class='chip'>Weaker season now</span>"}</li>
+    <li><b>September effect:</b> September has been the weakest month on average. ${m===9?on("Now"):""}</li>
+    <li><b>Santa Claus rally:</b> last week of December and first days of January. ${(md>=1218||md<=105)?on("Now"):""}</li>
+    <li><b>January effect:</b> small companies bouncing in January after December tax-loss selling. ${(md>=1220||m===1)?on("Now"):""}</li>
+    <li><b>Turn of the month:</b> the last day and first few days of each month tend to be stronger. ${(d>=28||d<=3)?on("Now"):""}</li>
+    <li><b>Pre-holiday effect:</b> the day before US market holidays has often been positive.${nh?` Next holiday: ${fmtD(nh[0])} (${nh[1]}).`:""}</li>
+    <li><b>US presidential cycle:</b> ${TODAY.getFullYear()} is ${termTxt} of the current term.</li></ul>
+   <h4>2. Business cycle (sector rotation)</h4><ul>
+    <li><b>Recovery:</b> banks, homebuilders, consumer spending stocks.</li>
+    <li><b>Expansion:</b> tech and industrials.</li>
+    <li><b>Slowdown:</b> energy, materials.</li>
+    <li><b>Recession:</b> healthcare, utilities, consumer staples.</li>
+    <li class="muted">The current phase is judged from economic news, so the app doesn't track it automatically.</li></ul>
+   <h4>3. Interest-rate cycle</h4><ul>
+    <li>Fed in the US (like the RBI repo rate in India). Rising rates tend to help banks; falling rates tend to help homebuilders, utilities, small companies and tech.</li>
+    ${nf?`<li>Next Fed decision: <b>${fmtD(nf)}</b> (about 11:30 pm India time).</li>`:""}</ul>
+   <h4>4. Industry and commodity seasons</h4><ul>
+    <li>Holiday retail, back to school, summer travel, summer driving, winter heating, spring planting, festival gold, hurricane season, tax season and summer heat. These are the cycles listed above, with their 10-year track record.</li></ul>`;
+}
+
+// ---------- Momentum tab ----------
 function renderMomentum(){
-  $("momList").innerHTML=M.momentum.length?boxCaution("Momentum can reverse suddenly, often on one news headline or a results day.")+M.momentum.map(x=>{const pr=priceOf(x.tk);return `<div class="card cycle s-${x.stage}">
-   <div class="srow"><h3>${x.tk} <span class="muted" style="font-weight:600">${esc(x.name)}</span></h3><div class="price">${pr?money(pr.p):""}</div></div>
-   <span class="st">${STLABEL[x.stage]||x.stage}</span>${pr?` <span class="muted">${pr.src}</span>`:""}
+  $("momList").innerHTML=M.momentum.length?boxCaution("Momentum can reverse suddenly, often on one headline or a results day.")+M.momentum.map((x,i)=>{const pr=priceOf(x.tk);return `<div class="card cycle s-${x.stage}">
+   <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}</div></div>
+   <span class="st">${STLABEL[x.stage]}</span>${newsChip(x.tk)}${pr?` <span class="muted">${pr.src}</span>`:""}
+   <dl class="facts" style="margin-top:10px"><dt>Potential</dt><dd><b>${x.potential>0?"+"+x.potential.toFixed(0)+"%":"Little left"}</b>${x.potentialTo?` (to about ${money(x.potentialTo)})`:""}</dd><dt>Time frame</dt><dd>${esc(x.frame)}</dd></dl>
    <div class="meter"><span style="width:${x.done}%"></span></div><p class="muted">About ${x.done}% of the move looks done (estimate)</p>
-   <dl class="facts"><dt>Room left</dt><dd>${esc(x.room)}${x.roomTo?", "+esc(x.roomTo):""}</dd><dt>Time frame</dt><dd>${esc(x.frame)}</dd><dt>Target</dt><dd>${esc(x.target)}</dd></dl>
-   ${planBox(x.entry)}<p class="muted" style="margin-top:8px">${esc(x.why)}</p>
-   ${x.warn?`<div class="warn">${esc(x.warn)}</div>`:""}${stageCaution(x.stage)}
-   <div class="actions">${watchBtn(x.tk)}</div>
-   <details class="more"><summary>Company results</summary><p>${esc(x.results)}</p></details></div>`}).join(""):`<p class="empty">No stock in the list has clear momentum today.</p>`;
-  $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${esc(m.name)}</h3><span class="muted" style="font-weight:800">${esc(m.status)}</span></div><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
+   ${planBox(x.entry,x.stop,x.target)}
+   <p class="muted" style="margin-top:8px">${esc(x.why)}</p>
+   ${x.warn?`<div class="warn">${esc(x.warn)}</div>`:""}
+   <div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">News & pattern</button></div></div>`}).join(""):`<p class="empty">No stock in the list has clear momentum today.</p>`;
+  $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${tkBtn(m.tk,m.name)}</h3><span class="muted" style="font-weight:800">${esc(m.status)}</span></div><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
 }
-function statusOf(tk){for(const c of M.cycles){const b=c.basket.find(b=>b.tk===tk);if(b)return{kind:"cycle",name:c.name,status:c.status,sellBy:c.sellBy}}
-  const x=M.momentum.find(x=>x.tk===tk);if(x)return{kind:"momentum",name:x.name,status:x.stage};return null}
+
+// ---------- Detail sheet ----------
+function openSheet(tk,cycId){
+  const pr=priceOf(tk);let c=null,b=null;
+  if(cycId){c=M.cycles.find(x=>x.id===cycId);b=c&&c.basket.find(x=>x.tk===tk)}
+  if(!c){const mc=mainCycle(tk);if(mc){c=mc.c;b=mc.b}}
+  const mo=momOf(tk),se=M.season[tk],news=newsOf(tk),pl=planFor(tk);
+  let h=`<button class="b g close" id="shClose">Close ✕</button><h2 style="margin-top:4px">${tk} <span class="muted" style="font-weight:600">${esc(nameOf(tk))}</span></h2>
+   <p>${pr?`<span class="price">${money(pr.p)}</span> <span class="muted">${pr.src}</span>`:"<span class='muted'>No price yet</span>"}</p>`;
+  if(c&&b&&b.hist.length){const ups=b.hist.filter(x=>x.r>0).length;
+    h+=`<div class="card${["peak","over"].includes(c.status)?" redcard":""}"><h3>${esc(c.name)} · ${esc(c.period)}</h3>
+     <p class="muted">Return during these exact weeks, each year. Up in <b>${ups} of ${b.hist.length}</b> years, median <b>${pct(b.med)}</b>, average ${pct(b.avg)}.</p>
+     ${barChart(b.hist.map(x=>x.r),b.hist.map(x=>x.y))}
+     ${["peak","over"].includes(c.status)?`<div class="sellban">⚠ Cycle ${c.status==="over"?"ended":"peaked"}: sell if you hold it.</div>`:planBox(b.entry,b.stop,b.target)}</div>`;}
+  if(se){const hl=c?cycleMonths(c):null;
+    h+=`<div class="card"><h3>Average return by month</h3><p class="muted">Last ${se.n} years.${c?" Highlighted months are the cycle.":""}</p>${barChart(se.months,MON.map(m=>m[0]),hl)}
+     <p class="muted">Best month: ${MON[se.months.indexOf(Math.max(...se.months))]} · Worst: ${MON[se.months.indexOf(Math.min(...se.months))]}</p></div>`;}
+  if(mo){h+=`<div class="card"><h3>Momentum</h3><p>${STLABEL[mo.stage]} · potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little left"} · ${esc(mo.frame)}</p>${planBox(mo.entry,mo.stop,mo.target)}</div>`;}
+  if(!c&&!mo)h+=`<div class="card"><p class="muted">Not in a cycle or momentum list right now. Default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
+  h+=`<div class="card"><h3>News: last 3 days</h3>${news.length?`<ul class="newsl">${news.map(n=>`<li><b>${fmtD(n.d)}</b> · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join("")}</ul>`:`<p class="muted">No news in the last 3 days.</p>`}</div>
+   <div class="actions">${watchBtn(tk)}</div>
+   <details class="more"><summary>Company results</summary><p>${esc((b&&b.results)||(mo&&mo.results)||"Check the results date before buying.")}</p></details>`;
+  $("sheet").innerHTML=h;$("sheet").classList.remove("hidden");$("sheetBg").classList.remove("hidden");$("sheet").scrollTop=0;
+  $("shClose").onclick=closeSheet;
+}
+function closeSheet(){$("sheet").classList.add("hidden");$("sheetBg").classList.add("hidden")}
+$("sheetBg").onclick=closeSheet;
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
+
+// ---------- Search suggestions ----------
+function universe(){const u={...DIR};M.cycles.forEach(c=>c.basket.forEach(b=>u[b.tk]=b.name));M.momentum.forEach(x=>u[x.tk]=x.name);Object.keys(M.prices).forEach(t=>{if(!u[t])u[t]=t});return u}
+function attachSuggest(inputId,boxId,onPick){
+  const inp=$(inputId),box=$(boxId);
+  const render=()=>{const v=inp.value.trim();if(!v){box.classList.add("hidden");return}
+    const up=v.toUpperCase(),lo=v.toLowerCase(),u=universe();
+    const scored=Object.entries(u).map(([t,n])=>[t,n,t===up?0:t.startsWith(up)?1:n.toLowerCase().startsWith(lo)?2:n.toLowerCase().includes(lo)?3:t.includes(up)?4:9]).filter(x=>x[2]<9).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0])).slice(0,8);
+    const typed=up.replace(/[^A-Z.\-]/g,"");
+    let html=scored.map(([t,n])=>`<button type="button" data-pick="${t}"><span><b>${t}</b> ${esc(n)}</span><small>${U.watch.includes(t)?"watching":""}</small></button>`).join("");
+    if(typed&&typed.length<=6&&!u[typed])html+=`<button type="button" data-pick="${typed}"><span>Use code <b>${typed}</b></span><small>not in list</small></button>`;
+    box.innerHTML=html||`<button type="button" disabled><span class="muted">No match</span></button>`;box.classList.remove("hidden")};
+  inp.addEventListener("input",render);inp.addEventListener("focus",render);
+  inp.addEventListener("blur",()=>setTimeout(()=>box.classList.add("hidden"),200));
+  box.addEventListener("pointerdown",e=>{const b=e.target.closest("[data-pick]");if(!b)return;e.preventDefault();box.classList.add("hidden");onPick(b.dataset.pick)});
+}
+
+// ---------- Watchlist ----------
+function statusLine(tk){const mc=mainCycle(tk),mo=momOf(tk),bits=[];
+  if(mc)bits.push(`Cycle: ${esc(mc.c.name)}, ${STLABEL[mc.c.status]}`);if(mo)bits.push(`Momentum: ${STLABEL[mo.stage]}, potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little"}`);
+  return bits.join(" · ")||"Not in the cycle or momentum lists right now."}
 function renderWatch(){
-  const q=$("q").value.trim().toLowerCase();
-  if(q){const all=new Set(Object.keys(DIR).concat(Object.keys(M.prices)));
-    let hits=[...all].filter(t=>t.toLowerCase().includes(q)||nameOf(t).toLowerCase().includes(q)).slice(0,8);
-    const typed=q.toUpperCase().replace(/[^A-Z.]/g,""); if(typed&&typed.length<=6&&!hits.includes(typed))hits.push(typed);
-    $("qres").innerHTML=`<div class="card"><ul class="res">${hits.map(t=>`<li><span><b>${t}</b> ${esc(nameOf(t))}</span>${watchBtn(t)}</li>`).join("")}</ul></div>`}
-  else $("qres").innerHTML="";
-  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),s=statusOf(t);return `<div class="card"><div class="srow"><div><b>${t}</b> ${esc(nameOf(t))}</div><div class="price">${pr?money(pr.p):"–"}</div></div>
-    <p class="muted">${s?`${s.kind==="cycle"?"Cycle":"Momentum"}: ${esc(s.name)}, ${STLABEL[s.status]||s.status}`:"Not in the cycle or momentum lists right now."}${pr?" · "+pr.src:" · Price comes with the next update"}</p>
-    <div class="actions"><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above, or tap "+ Watch" on any stock.</p>`}
-function verdict(b){const pr=priceOf(b.tk),s=statusOf(b.tk),why=[];let v="hold",g=null;
+  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}</div></div>
+    <p class="muted">${statusLine(t)}${pr?" · "+pr.src:" · price comes with the next update"}</p>
+    <div class="actions"><button class="b g" data-open="${t}">Details</button><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above.</p>`}
+
+// ---------- Buys ----------
+function verdict(b){const pr=priceOf(b.tk),pl=planFor(b.tk),mc=mainCycle(b.tk),mo=momOf(b.tk),why=[];let v="hold",g=null;
   const up=x=>{const r={none:-1,hold:0,watch:1,sell:2};if(r[x]>r[v])v=x};
   if(pr){g=(pr.p-b.price)/b.price*100;
-    if(g>=6){up("sell");why.push(`Up ${g.toFixed(1)}%: target reached. Sell and take the profit.`)}
-    else if(g<=-5){up("sell");why.push(`Down ${Math.abs(g).toFixed(1)}%: stop-loss hit. Sell now before it falls further.`)}
-    else if(g>=4){up("watch");why.push(`Up ${g.toFixed(1)}%, close to the +6% target.`)}
-    else if(g<=-3.5){up("watch");why.push(`Down ${Math.abs(g).toFixed(1)}%, close to the −5% stop-loss.`)}}
-  else{v="none";why.push('No price yet. Tap "Type today\'s price" or "Update now".')}
-  if(s){if(["peak","over","cooling"].includes(s.status)){up("sell");why.push(s.kind==="cycle"?`Its cycle (${s.name}) has peaked. Sell on any bounce.`:"Its momentum has stopped. Sell on any bounce.")}
-    else if(s.status==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}
-    else why.push(s.kind==="cycle"?`Cycle (${s.name}) still running. ${s.sellBy}.`:"Momentum still running.")}
-  return{v,why,g,pr}}
+    if(g>=pl.target){up("sell");why.push(`Up ${g.toFixed(1)}%: target (+${pl.target}%) reached. Sell and take the profit.`)}
+    else if(g<=-pl.stop){up("sell");why.push(`Down ${Math.abs(g).toFixed(1)}%: stop-loss (−${pl.stop}%) hit. Sell now before it falls further.`)}
+    else if(g>=pl.target*0.7){up("watch");why.push(`Up ${g.toFixed(1)}%, close to the +${pl.target}% target.`)}
+    else if(g<=-pl.stop*0.7){up("watch");why.push(`Down ${Math.abs(g).toFixed(1)}%, close to the −${pl.stop}% stop-loss.`)}}
+  else{v="none";why.push('No price yet. Tap "Type today\'s price".')}
+  if(mc){if(["peak","over"].includes(mc.c.status)){up("sell");why.push(`Its cycle (${mc.c.name}) has ${mc.c.status==="over"?"ended":"peaked"}. Sell on any bounce.`)}
+    else why.push(`Cycle (${mc.c.name}) ${mc.c.status==="coming"?"starts soon":"still running"}. ${mc.c.sellBy}.`)}
+  if(mo){if(mo.stage==="cooling"){up("sell");why.push("Its momentum has stopped. Sell on any bounce.")}
+    else if(mo.stage==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}}
+  const nn=newsOf(b.tk).length;if(nn)why.push(`${nn} news item${nn>1?"s":""} in the last 3 days: tap the name to read.`);
+  return{v,why,g,pr,pl}}
 function renderBuys(){
   const open=U.buys.filter(b=>!b.sold),sold=U.buys.filter(b=>b.sold),vs=open.map(b=>({b,r:verdict(b)})),sells=vs.filter(x=>x.r.v==="sell");
   $("sellBadge").textContent=sells.length;$("sellBadge").classList.toggle("hidden",!sells.length);
@@ -226,64 +369,69 @@ function renderBuys(){
   $("totals").innerHTML=`<div><span class="muted">Open profit / loss</span><b class="${val-inv>=0?"pos":"neg"}">${money(val-inv)}</b></div><div><span class="muted">Booked from sales</span><b class="${realized>=0?"pos":"neg"}">${money(realized)}</b></div>`;
   const L={sell:"SELL NOW",watch:"Watch closely",hold:"Hold",none:"Needs a price"};
   $("holding").innerHTML=vs.length?vs.map(({b,r})=>`<div class="card buy b-${r.v}">
-    <div class="srow"><div><b>${b.tk}</b> ${esc(nameOf(b.tk))}</div><span class="verdict">${L[r.v]}</span></div>
+    <div class="srow"><div>${tkBtn(b.tk,nameOf(b.tk))}</div><span class="verdict">${L[r.v]}</span></div>
     <p class="muted">Bought ${fmtD(b.date)} at ${money(b.price)} · ${money(b.amt)}</p>
-    ${r.pr?`<p>Now ${money(r.pr.p)} <span class="muted">(${r.pr.src})</span>: <span class="${r.g>=0?"pos":"neg"}">${r.g>=0?"+":""}${r.g.toFixed(1)}% (${money(b.amt*r.g/100)})</span></p>`:""}
-    <div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target<b>${money(b.price*1.06)}</b></div><div class="s">Stop-loss<b>${money(b.price*0.95)}</b></div></div>
+    ${r.pr?`<p>Now ${money(r.pr.p)} <span class="muted">(${r.pr.src})</span>: <span class="${r.g>=0?"pos":"neg"}">${pct(r.g)} (${money(b.amt*r.g/100)})</span></p>`:""}
+    <div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target +${r.pl.target}%<b>${money(b.price*(1+r.pl.target/100))}</b></div><div class="s">Stop −${r.pl.stop}%<b>${money(b.price*(1-r.pl.stop/100))}</b></div></div>
     <ul style="margin:8px 0 0;padding-left:18px;font-size:.9rem">${r.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
     <div class="actions"><button class="b g" data-px="${b.tk}">Type today's price</button><button class="b" data-sell="${b.id}">I sold it</button><button class="b g" data-del="${b.id}">Delete</button></div></div>`).join(""):`<p class="empty">No purchases yet.</p>`;
   $("soldList").innerHTML=sold.length?`<div class="card"><ul class="res">${sold.slice().reverse().map(b=>`<li><span><b>${b.tk}</b> ${money(b.price)} → ${money(b.sellPrice)}</span><span class="${b.pnl>=0?"pos":"neg"}">${money(b.pnl)}</span></li>`).join("")}</ul></div>`:`<p class="empty">Nothing sold yet.</p>`}
-function renderNews(){$("news").innerHTML=M.news.length?M.news.map(n=>`<li><b>${n.tk}</b> · ${fmtD(n.d)} · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join(""):`<li class="muted">News appears after the first update.</li>`}
-function renderAll(){$("asof").textContent="Prices and views as of "+M.asOfLabel;renderCycles();renderMomentum();renderWatch();renderBuys();renderNews()}
+
+function renderAll(){$("asof").textContent="Prices: "+(M.pricesAt?M.pricesAt+" · ":"")+M.asOfLabel;renderCycles();renderMomentum();renderWatch();renderBuys()}
+
+// ---------- data ----------
 async function load(){
   try{
     const [kv,pr,nw,wl,by,mn]=await Promise.all([
-      q(sbc.from("kv").select("v").eq("k","snapshot").maybeSingle()),
+      q(sbc.from("kv").select("k,v").in("k",["snapshot","pricesAt"])),
       q(sbc.from("prices").select("tk,price,day")),
-      q(sbc.from("news").select("tk,day,title,source").order("day",{ascending:false}).limit(15)),
+      q(sbc.from("news").select("tk,day,title,source").order("day",{ascending:false}).limit(300)),
       q(sbc.from("watch").select("tk").order("tk")),
       q(sbc.from("buys").select("*").order("id")),
       q(sbc.from("manual").select("tk,price,day"))]);
-    M=Object.assign({asOf:"",asOfLabel:"No data yet: run the daily job once",cycles:[],momentum:[],metals:[]},kv?kv.v:{});
-    M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
-    M.news=nw.map(n=>({tk:n.tk,d:n.day,t:n.title,src:n.source}));
+    const snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v;
+    M=Object.assign({asOf:"",asOfLabel:"No data yet: run the update once on GitHub",cycles:[],momentum:[],metals:[],season:{}},snap||{});
+    M.pricesAt=pa&&pa.at; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
+    M.newsBy={}; nw.forEach(n=>(M.newsBy[n.tk]=M.newsBy[n.tk]||[]).push({d:n.day,t:n.title,src:n.source}));
     U={watch:wl.map(r=>r.tk),
-       buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,
-         pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
+       buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
        manual:Object.fromEntries(mn.map(r=>[r.tk,{p:+r.price,d:r.day}]))};
     renderAll();
   }catch(e){$("asof").textContent="Couldn't load data. Check the internet connection."}
 }
 async function addWatch(tk){const {error}=await sbc.from("watch").insert({tk}); if(error&&error.code!=="23505")throw error}
+
+// ---------- events ----------
 $("saveNote").textContent="Saved online: the same data on laptop and phone.";
-$("bDt").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+$("bDt").value=todayIso();
 document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
   ["cyc","mom","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
-$("q").addEventListener("input",renderWatch);
-
+attachSuggest("q","qSug",async t=>{$("q").value="";if(!U.watch.includes(t))await addWatch(t);load()});
+attachSuggest("bTk","bSug",t=>{$("bTk").value=t;$("bName").textContent=nameOf(t);const p=priceOf(t);if(p&&!$("bPx").value)$("bPx").value=p.p});
 document.addEventListener("click",async e=>{
-  const w=e.target.closest("[data-w]"),px=e.target.closest("[data-px]"),sl=e.target.closest("[data-sell]"),dl=e.target.closest("[data-del]");
-  if(w){const t=w.dataset.w; if(U.watch.includes(t)) await q(sbc.from("watch").delete().eq("tk",t)); else await addWatch(t); load()}
+  const o=e.target.closest("[data-open]"),w=e.target.closest("[data-w]"),px=e.target.closest("[data-px]"),sl=e.target.closest("[data-sell]"),dl=e.target.closest("[data-del]");
+  if(o){openSheet(o.dataset.open,o.dataset.cyc);return}
+  if(w){const t=w.dataset.w;if(U.watch.includes(t))await q(sbc.from("watch").delete().eq("tk",t));else await addWatch(t);await load();if(!$("sheet").classList.contains("hidden"))w.textContent=U.watch.includes(t)?"✓ Watching":"+ Watch"}
   if(px){const t=px.dataset.px,cur=priceOf(t),v=parseFloat(prompt(`Today's price for ${t} ($)?`,cur?cur.p:""));if(v>0){await q(sbc.from("manual").upsert({tk:t,price:v,day:todayIso()},{onConflict:"user_id,tk"}));load()}}
   if(sl){const b=U.buys.find(x=>x.id==sl.dataset.sell),cur=priceOf(b.tk),v=parseFloat(prompt(`Sold ${b.tk} at what price ($)?`,cur?cur.p:b.price));if(v>0){await q(sbc.from("buys").update({sold:true,sell_price:v}).eq("id",b.id));load()}}
   if(dl&&confirm("Delete this purchase?")){await q(sbc.from("buys").delete().eq("id",dl.dataset.del));load()}
 });
-$("bAdd").onclick=async()=>{const tk=$("bTk").value.trim().toUpperCase().replace(/[^A-Z.]/g,""),price=parseFloat($("bPx").value),amt=parseFloat($("bAmt").value),date=$("bDt").value;
+$("bAdd").onclick=async()=>{const tk=$("bTk").value.trim().toUpperCase().replace(/[^A-Z.\-]/g,""),price=parseFloat($("bPx").value),amt=parseFloat($("bAmt").value),date=$("bDt").value;
   if(!tk||!(price>0)||!(amt>0)||!date){$("bMsg").textContent="Fill in stock, buy price, amount and date.";return}
-  await q(sbc.from("buys").insert({tk,price,amt,day:date})); await addWatch(tk);$("bTk").value="";$("bPx").value="";$("bMsg").textContent=tk+" added.";load()};
+  await q(sbc.from("buys").insert({tk,price,amt,day:date}));await addWatch(tk);$("bTk").value="";$("bPx").value="";$("bName").textContent="";$("bMsg").textContent=tk+" added.";load()};
 async function gate(){
   const {data:{session}}=await sbc.auth.getSession();
-  $("login").classList.toggle("hidden",!!session); $("app").classList.toggle("hidden",!session);
-  if(session) load();
+  $("login").classList.toggle("hidden",!!session);$("app").classList.toggle("hidden",!session);
+  if(session)load();
 }
 $("lGo").onclick=async()=>{$("lMsg").textContent="Signing in...";
   const {error}=await sbc.auth.signInWithPassword({email:$("lEmail").value.trim(),password:$("lPass").value});
-  $("lMsg").textContent=error?"Wrong email or password.":""; gate()};
+  $("lMsg").textContent=error?"Wrong email or password.":"";gate()};
 $("lPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("lGo").click()});
-$("logout").onclick=async()=>{await sbc.auth.signOut(); gate()};
+$("logout").onclick=async()=>{await sbc.auth.signOut();gate()};
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("app").classList.contains("hidden"))load()});
-if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 if(!C.SUPABASE_URL||C.SUPABASE_URL.includes("YOUR-PROJECT")){document.body.innerHTML='<main><h1>Season Watch</h1><p>Setup needed: put your Supabase URL and anon key in docs/config.js.</p></main>'}else gate();
 </script>
 </body>
