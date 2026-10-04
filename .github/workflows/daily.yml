@@ -1,0 +1,19 @@
+name: Daily market refresh
+on:
+  schedule:
+    - cron: "30 1 * * 2-6"   # 7:00 am India time, Tue–Sat (after each US trading day)
+  workflow_dispatch: {}       # lets you run it any time from the Actions tab
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance
+      - run: python refresh.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
