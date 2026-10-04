@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Season Watch</title>
+<meta name="theme-color" content="#2E7D5B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F1F4F0;--card:#FFF;--ink:#1B2420;--muted:#5E6B64;--line:#D8DFD9;--soft:#F6F8F5;
+--green:#2E7D5B;--amber:#B88A07;--red:#C2413B;--blue:#3E55C9;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111714;--card:#1A231F;--ink:#E7EEE9;--muted:#9DAAA3;--line:#2C3832;--soft:#202B26;--green:#5CC495;--amber:#E8C04A;--red:#F07167;--blue:#8C9DF5}}
+:root[data-theme="dark"]{--bg:#111714;--card:#1A231F;--ink:#E7EEE9;--muted:#9DAAA3;--line:#2C3832;--soft:#202B26;--green:#5CC495;--amber:#E8C04A;--red:#F07167;--blue:#8C9DF5}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:18px 14px 56px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Nunito Sans",system-ui,sans-serif;line-height:1.15;margin:0}
+h1{font-size:1.9rem;font-weight:800}
+h2{font-size:1.2rem;font-weight:800;margin:24px 0 6px}
+h3{font-size:1.05rem;font-weight:800}
+p{margin:.35em 0}
+.muted{color:var(--muted);font-size:.9rem}
+.asof{font-size:.85rem;color:var(--muted)}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:10px 0 8px;margin-top:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+nav button{font:inherit;font-weight:800;font-size:.86rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 4px;cursor:pointer;position:relative}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+nav .badge{position:absolute;top:-6px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:.7rem;padding:1px 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:10px}
+.cycle{border-left:6px solid var(--sc)}
+.st{display:inline-block;font-size:.76rem;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--sc);color:#fff}
+.s-early,.s-steady{--sc:var(--green)} .s-mid,.s-coming{--sc:var(--blue)} .s-late{--sc:var(--amber)} .s-peak,.s-cooling,.s-over{--sc:var(--red)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:.9rem;margin-top:8px}
+.facts dt{color:var(--muted);font-weight:700} .facts dd{margin:0}
+.stock{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}
+.srow{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.price{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.1rem}
+.bars{display:inline-flex;gap:2px;vertical-align:middle;margin-left:6px}
+.bars i{width:7px;height:12px;border-radius:2px;background:var(--line)} .bars i.on{background:var(--sc,var(--green))}
+.rank{font-size:.78rem;font-weight:800;color:var(--muted)}
+.plan{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.plan div{background:var(--soft);border-radius:9px;padding:7px;text-align:center;font-size:.76rem;color:var(--muted)}
+.plan b{display:block;font-size:.95rem;color:var(--ink)}
+.plan .t b{color:var(--green)} .plan .s b{color:var(--red)}
+.meter{height:12px;background:var(--soft);border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:8px 0 4px}
+.meter span{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--amber) 70%,var(--red))}
+.caution{margin-top:8px;font-size:.84rem;background:var(--soft);border:1px dashed var(--amber);border-radius:8px;padding:7px 10px}
+.caution b{color:var(--amber)}
+.warn{background:var(--soft);border-left:4px solid var(--red);padding:8px 10px;border-radius:6px;margin-top:8px;font-weight:700;font-size:.9rem}
+details.more{margin-top:8px;font-size:.88rem}
+details.more summary{cursor:pointer;color:var(--muted);font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button.b{font:inherit;font-weight:800;border:none;border-radius:10px;padding:9px 13px;cursor:pointer;background:var(--ink);color:var(--card);font-size:.88rem}
+button.g{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible,nav button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+input{width:100%;font:inherit;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink)}
+label{display:block;font-size:.82rem;font-weight:800;margin:8px 0 3px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+.news li{padding:7px 0;border-top:1px solid var(--line);font-size:.9rem}
+.news{list-style:none;padding:0;margin:0}
+.res{list-style:none;padding:0;margin:8px 0 0}
+.res li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.buy{border-left:6px solid var(--bc)}
+.b-sell{--bc:var(--red);background:color-mix(in srgb,var(--red) 8%,var(--card))} .b-watch{--bc:var(--amber)} .b-hold{--bc:var(--green)} .b-none{--bc:var(--line)}
+.verdict{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.15rem;color:var(--bc)}
+.alarm{background:var(--red);color:#fff;border-radius:12px;padding:12px 14px;margin-top:10px;font-weight:800}
+.pos{color:var(--green);font-weight:800} .neg{color:var(--red);font-weight:800}
+.total{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.total div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.total b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:1.3rem}
+.empty{color:var(--muted);padding:6px 0}
+.hidden{display:none}
+footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<main>
+<div id="login" class="hidden" style="max-width:380px;margin:12vh auto 0">
+ <h1>Season Watch</h1>
+ <div class="card"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username">
+ <label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password">
+ <div class="actions"><button class="b" id="lGo">Sign in</button></div><p class="muted" id="lMsg"></p></div>
+</div>
+<div id="app" class="hidden">
+<h1>Season Watch</h1>
+<p class="asof"><span id="asof"></span> <span class="muted">· updates every morning</span> <button class="b g" id="logout" style="padding:4px 10px;font-size:.8rem;margin-left:6px">Sign out</button></p>
+<nav role="tablist">
+ <button role="tab" data-tab="cyc" aria-selected="true">Cycles</button>
+ <button role="tab" data-tab="mom" aria-selected="false">Momentum</button>
+ <button role="tab" data-tab="watch" aria-selected="false">Watchlist</button>
+ <button role="tab" data-tab="buys" aria-selected="false">My buys<span class="badge hidden" id="sellBadge"></span></button>
+</nav>
+
+<section id="tab-cyc">
+ <h2>Happening this month</h2>
+ <p class="muted">Within each group, the stock with the most bars swings the most with the cycle.</p>
+ <div id="cycNow"></div>
+ <h2>Next cycles: when to buy</h2>
+ <div id="cycNext"></div>
+</section>
+
+<section id="tab-mom" class="hidden">
+ <h2>Stocks with momentum</h2>
+ <p class="muted">The bar shows roughly how much of the move may already be done. These are estimates, not promises.</p>
+ <div id="momList"></div>
+ <h2>Gold and copper</h2>
+ <div id="metals"></div>
+</section>
+
+<section id="tab-watch" class="hidden">
+ <h2>Search</h2>
+ <input id="q" placeholder="Type a name or ticker, e.g. Apple or AAPL" autocomplete="off">
+ <div id="qres"></div>
+ <h2>My watchlist</h2>
+ <div id="wl"></div>
+</section>
+
+<section id="tab-buys" class="hidden">
+ <div id="alarms"></div>
+ <div class="total" id="totals"></div>
+ <h2>Add a purchase</h2>
+ <div class="card"><div class="form">
+  <div><label for="bTk">Stock</label><input id="bTk" placeholder="e.g. TGT" maxlength="8" autocapitalize="characters"></div>
+  <div><label for="bPx">Buy price ($)</label><input id="bPx" type="number" inputmode="decimal" step="any" min="0"></div>
+  <div><label for="bAmt">Amount ($)</label><input id="bAmt" type="number" inputmode="decimal" step="any" min="0" value="500"></div>
+  <div><label for="bDt">Date</label><input id="bDt" type="date"></div>
+ </div><div class="actions"><button class="b" id="bAdd">Add purchase</button></div><p class="muted" id="bMsg"></p></div>
+ <h2>Holding</h2>
+ <div id="holding"></div>
+ <h2>Sold</h2>
+ <div id="soldList"></div>
+</section>
+
+<h2>Latest news used</h2>
+<div class="card"><ul class="news" id="news"></ul></div>
+
+</div>
+<footer><span id="saveNote"></span><br>Cycle and momentum views are estimates based on past patterns and recent news. Not financial advice.</footer>
+</main>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script>
+const DIR={AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",META:"Meta (Facebook)",AMZN:"Amazon",NVDA:"Nvidia",TSLA:"Tesla",NFLX:"Netflix",AMD:"AMD",INTC:"Intel",MU:"Micron",AVGO:"Broadcom",JPM:"JPMorgan",BAC:"Bank of America",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",XOM:"Exxon Mobil",CVX:"Chevron",VLO:"Valero",DAL:"Delta Air Lines",UAL:"United Airlines",BKNG:"Booking.com",MAR:"Marriott",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",COPX:"Copper miners fund",CPER:"Copper fund",NEM:"Newmont (gold)",GLD:"Gold fund",SLV:"Silver fund",QQQ:"Top 100 US tech",VOO:"Top 500 US companies",SPY:"S&P 500 fund",IWM:"Small US companies",ITB:"Homebuilders fund",XLE:"Energy fund",SGOV:"T-bill fund (safe)",EQT:"EQT (natural gas)",KO:"Coca-Cola",PEP:"PepsiCo",DIS:"Disney",NKE:"Nike",LULU:"Lululemon",HRB:"H&R Block",UBER:"Uber",V:"Visa"};
+let M={asOf:"",asOfLabel:"Loading...",cycles:[],momentum:[],metals:[],prices:{},news:[]}, U={watch:[],buys:[],manual:{}};
+const $=id=>document.getElementById(id);
+const money=n=>(n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const STLABEL={early:"Early: good time to look",mid:"In progress",peak:"Near peak: don't chase",over:"Over",coming:"Coming next",late:"Late stage",steady:"Steady",cooling:"Cooling: momentum paused"};
+const C=window.SW_CONFIG||{};
+const sbc=window.supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY);
+const todayIso=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+async function q(p){const {data,error}=await p; if(error){console.error(error); throw error} return data}
+function fmtD(s){if(!s)return"";const [y,m,d]=s.slice(0,10).split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}
+function priceOf(tk){const m=U.manual[tk],s=M.prices[tk];
+  if(m&&(!s||m.d>s.d))return{p:m.p,src:"typed by you "+fmtD(m.d)};
+  if(s)return{p:s.p,src:"close "+fmtD(s.d)};return null}
+function nameOf(tk){for(const c of M.cycles)for(const b of c.basket)if(b.tk===tk)return b.name;for(const x of M.momentum)if(x.tk===tk)return x.name;return DIR[tk]||tk}
+function bars(n){return `<span class="bars" aria-label="${n} of 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`}
+function planBox(e){if(!e)return"";const mid=(e[0]+e[1])/2;return `<div class="plan"><div>Buy if it dips to<b>$${e[0]}–${e[1]}</b></div><div class="t">Target +6%<b>${money(mid*1.06)}</b></div><div class="s">Stop-loss −5%<b>${money(mid*0.95)}</b></div></div>`}
+function watchBtn(tk){const on=U.watch.includes(tk);return `<button class="b g" data-w="${tk}">${on?"✓ Watching":"+ Watch"}</button>`}
+const CAUTION_COMMON="Check today's news and the results date before buying, keep each buy to about $500, and always set the −5% stop-loss.";
+function boxCaution(t){return `<div class="caution"><b>⚠ Caution:</b> ${t} ${CAUTION_COMMON}</div>`}
+function stageCaution(status){const t={peak:"Near its peak: buying now risks catching the top.",cooling:"The move has stalled: prices often drift lower from here.",late:"Late in the move: a 10% drop can come quickly."}[status];return t?`<div class="caution"><b>⚠</b> ${t}</div>`:""}
+function stockRow(b,c,i){const pr=priceOf(b.tk);
+  return `<div class="stock"><div class="srow"><div><span class="rank">#${i+1}</span> <b>${b.tk}</b> ${esc(b.name)}${bars(b.cyc)}</div><div class="price">${pr?money(pr.p):""}</div></div>
+   <p class="muted">${esc(b.note)}${pr?` <span>(${pr.src})</span>`:""}</p>${planBox(b.entry)}
+   <div class="actions">${watchBtn(b.tk)}</div>
+   <details class="more"><summary>Company results</summary><p>${esc(b.results)}</p></details></div>`}
+function renderCycles(){
+  const card=c=>`<div class="card cycle s-${c.status}"><div class="srow"><h3>${esc(c.name)}</h3><span class="st">${STLABEL[c.status]||c.status}</span></div>
+    <p class="muted">${esc(c.why)}</p>
+    <dl class="facts"><dt>Cycle</dt><dd>${esc(c.period)}</dd><dt>Peak</dt><dd>${esc(c.peak)}</dd><dt>Buy</dt><dd>${esc(c.buy)}</dd><dt>Sell by</dt><dd>${esc(c.sellBy)}</dd></dl>
+    ${stageCaution(c.status)}${c.basket.slice().sort((a,b)=>b.cyc-a.cyc).map((b,i)=>stockRow(b,c,i)).join("")}</div>`;
+  const now=M.cycles.filter(c=>c.now), next=M.cycles.filter(c=>!c.now);
+  $("cycNow").innerHTML=now.length?boxCaution("Past seasonal patterns, not promises. In many years they don't happen.")+now.map(card).join(""):`<p class="empty">No active cycles right now.</p>`;
+  $("cycNext").innerHTML=next.length?boxCaution("Not started yet: buying too early can tie up money for weeks.")+next.map(card).join(""):`<p class="empty">No cycles starting in the next 60 days.</p>`;
+}
+function renderMomentum(){
+  $("momList").innerHTML=M.momentum.length?boxCaution("Momentum can reverse suddenly, often on one news headline or a results day.")+M.momentum.map(x=>{const pr=priceOf(x.tk);return `<div class="card cycle s-${x.stage}">
+   <div class="srow"><h3>${x.tk} <span class="muted" style="font-weight:600">${esc(x.name)}</span></h3><div class="price">${pr?money(pr.p):""}</div></div>
+   <span class="st">${STLABEL[x.stage]||x.stage}</span>${pr?` <span class="muted">${pr.src}</span>`:""}
+   <div class="meter"><span style="width:${x.done}%"></span></div><p class="muted">About ${x.done}% of the move looks done (estimate)</p>
+   <dl class="facts"><dt>Room left</dt><dd>${esc(x.room)}${x.roomTo?", "+esc(x.roomTo):""}</dd><dt>Time frame</dt><dd>${esc(x.frame)}</dd><dt>Target</dt><dd>${esc(x.target)}</dd></dl>
+   ${planBox(x.entry)}<p class="muted" style="margin-top:8px">${esc(x.why)}</p>
+   ${x.warn?`<div class="warn">${esc(x.warn)}</div>`:""}${stageCaution(x.stage)}
+   <div class="actions">${watchBtn(x.tk)}</div>
+   <details class="more"><summary>Company results</summary><p>${esc(x.results)}</p></details></div>`}).join(""):`<p class="empty">No stock in the list has clear momentum today.</p>`;
+  $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${esc(m.name)}</h3><span class="muted" style="font-weight:800">${esc(m.status)}</span></div><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
+}
+function statusOf(tk){for(const c of M.cycles){const b=c.basket.find(b=>b.tk===tk);if(b)return{kind:"cycle",name:c.name,status:c.status,sellBy:c.sellBy}}
+  const x=M.momentum.find(x=>x.tk===tk);if(x)return{kind:"momentum",name:x.name,status:x.stage};return null}
+function renderWatch(){
+  const q=$("q").value.trim().toLowerCase();
+  if(q){const all=new Set(Object.keys(DIR).concat(Object.keys(M.prices)));
+    let hits=[...all].filter(t=>t.toLowerCase().includes(q)||nameOf(t).toLowerCase().includes(q)).slice(0,8);
+    const typed=q.toUpperCase().replace(/[^A-Z.]/g,""); if(typed&&typed.length<=6&&!hits.includes(typed))hits.push(typed);
+    $("qres").innerHTML=`<div class="card"><ul class="res">${hits.map(t=>`<li><span><b>${t}</b> ${esc(nameOf(t))}</span>${watchBtn(t)}</li>`).join("")}</ul></div>`}
+  else $("qres").innerHTML="";
+  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),s=statusOf(t);return `<div class="card"><div class="srow"><div><b>${t}</b> ${esc(nameOf(t))}</div><div class="price">${pr?money(pr.p):"–"}</div></div>
+    <p class="muted">${s?`${s.kind==="cycle"?"Cycle":"Momentum"}: ${esc(s.name)}, ${STLABEL[s.status]||s.status}`:"Not in the cycle or momentum lists right now."}${pr?" · "+pr.src:" · Price comes with the next update"}</p>
+    <div class="actions"><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above, or tap "+ Watch" on any stock.</p>`}
+function verdict(b){const pr=priceOf(b.tk),s=statusOf(b.tk),why=[];let v="hold",g=null;
+  const up=x=>{const r={none:-1,hold:0,watch:1,sell:2};if(r[x]>r[v])v=x};
+  if(pr){g=(pr.p-b.price)/b.price*100;
+    if(g>=6){up("sell");why.push(`Up ${g.toFixed(1)}%: target reached. Sell and take the profit.`)}
+    else if(g<=-5){up("sell");why.push(`Down ${Math.abs(g).toFixed(1)}%: stop-loss hit. Sell now before it falls further.`)}
+    else if(g>=4){up("watch");why.push(`Up ${g.toFixed(1)}%, close to the +6% target.`)}
+    else if(g<=-3.5){up("watch");why.push(`Down ${Math.abs(g).toFixed(1)}%, close to the −5% stop-loss.`)}}
+  else{v="none";why.push('No price yet. Tap "Type today\'s price" or "Update now".')}
+  if(s){if(["peak","over","cooling"].includes(s.status)){up("sell");why.push(s.kind==="cycle"?`Its cycle (${s.name}) has peaked. Sell on any bounce.`:"Its momentum has stopped. Sell on any bounce.")}
+    else if(s.status==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}
+    else why.push(s.kind==="cycle"?`Cycle (${s.name}) still running. ${s.sellBy}.`:"Momentum still running.")}
+  return{v,why,g,pr}}
+function renderBuys(){
+  const open=U.buys.filter(b=>!b.sold),sold=U.buys.filter(b=>b.sold),vs=open.map(b=>({b,r:verdict(b)})),sells=vs.filter(x=>x.r.v==="sell");
+  $("sellBadge").textContent=sells.length;$("sellBadge").classList.toggle("hidden",!sells.length);
+  $("alarms").innerHTML=sells.map(x=>`<div class="alarm">⚠️ SELL ${x.b.tk}: ${esc(x.r.why.find(w=>!w.startsWith("No price"))||"")}</div>`).join("");
+  let inv=0,val=0;vs.forEach(({b,r})=>{inv+=b.amt;val+=r.pr?b.amt*(1+r.g/100):b.amt});
+  const realized=sold.reduce((a,b)=>a+(b.pnl||0),0);
+  $("totals").innerHTML=`<div><span class="muted">Open profit / loss</span><b class="${val-inv>=0?"pos":"neg"}">${money(val-inv)}</b></div><div><span class="muted">Booked from sales</span><b class="${realized>=0?"pos":"neg"}">${money(realized)}</b></div>`;
+  const L={sell:"SELL NOW",watch:"Watch closely",hold:"Hold",none:"Needs a price"};
+  $("holding").innerHTML=vs.length?vs.map(({b,r})=>`<div class="card buy b-${r.v}">
+    <div class="srow"><div><b>${b.tk}</b> ${esc(nameOf(b.tk))}</div><span class="verdict">${L[r.v]}</span></div>
+    <p class="muted">Bought ${fmtD(b.date)} at ${money(b.price)} · ${money(b.amt)}</p>
+    ${r.pr?`<p>Now ${money(r.pr.p)} <span class="muted">(${r.pr.src})</span>: <span class="${r.g>=0?"pos":"neg"}">${r.g>=0?"+":""}${r.g.toFixed(1)}% (${money(b.amt*r.g/100)})</span></p>`:""}
+    <div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target<b>${money(b.price*1.06)}</b></div><div class="s">Stop-loss<b>${money(b.price*0.95)}</b></div></div>
+    <ul style="margin:8px 0 0;padding-left:18px;font-size:.9rem">${r.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
+    <div class="actions"><button class="b g" data-px="${b.tk}">Type today's price</button><button class="b" data-sell="${b.id}">I sold it</button><button class="b g" data-del="${b.id}">Delete</button></div></div>`).join(""):`<p class="empty">No purchases yet.</p>`;
+  $("soldList").innerHTML=sold.length?`<div class="card"><ul class="res">${sold.slice().reverse().map(b=>`<li><span><b>${b.tk}</b> ${money(b.price)} → ${money(b.sellPrice)}</span><span class="${b.pnl>=0?"pos":"neg"}">${money(b.pnl)}</span></li>`).join("")}</ul></div>`:`<p class="empty">Nothing sold yet.</p>`}
+function renderNews(){$("news").innerHTML=M.news.length?M.news.map(n=>`<li><b>${n.tk}</b> · ${fmtD(n.d)} · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join(""):`<li class="muted">News appears after the first update.</li>`}
+function renderAll(){$("asof").textContent="Prices and views as of "+M.asOfLabel;renderCycles();renderMomentum();renderWatch();renderBuys();renderNews()}
+async function load(){
+  try{
+    const [kv,pr,nw,wl,by,mn]=await Promise.all([
+      q(sbc.from("kv").select("v").eq("k","snapshot").maybeSingle()),
+      q(sbc.from("prices").select("tk,price,day")),
+      q(sbc.from("news").select("tk,day,title,source").order("day",{ascending:false}).limit(15)),
+      q(sbc.from("watch").select("tk").order("tk")),
+      q(sbc.from("buys").select("*").order("id")),
+      q(sbc.from("manual").select("tk,price,day"))]);
+    M=Object.assign({asOf:"",asOfLabel:"No data yet: run the daily job once",cycles:[],momentum:[],metals:[]},kv?kv.v:{});
+    M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
+    M.news=nw.map(n=>({tk:n.tk,d:n.day,t:n.title,src:n.source}));
+    U={watch:wl.map(r=>r.tk),
+       buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,
+         pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
+       manual:Object.fromEntries(mn.map(r=>[r.tk,{p:+r.price,d:r.day}]))};
+    renderAll();
+  }catch(e){$("asof").textContent="Couldn't load data. Check the internet connection."}
+}
+async function addWatch(tk){const {error}=await sbc.from("watch").insert({tk}); if(error&&error.code!=="23505")throw error}
+$("saveNote").textContent="Saved online: the same data on laptop and phone.";
+$("bDt").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  ["cyc","mom","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
+$("q").addEventListener("input",renderWatch);
+
+document.addEventListener("click",async e=>{
+  const w=e.target.closest("[data-w]"),px=e.target.closest("[data-px]"),sl=e.target.closest("[data-sell]"),dl=e.target.closest("[data-del]");
+  if(w){const t=w.dataset.w; if(U.watch.includes(t)) await q(sbc.from("watch").delete().eq("tk",t)); else await addWatch(t); load()}
+  if(px){const t=px.dataset.px,cur=priceOf(t),v=parseFloat(prompt(`Today's price for ${t} ($)?`,cur?cur.p:""));if(v>0){await q(sbc.from("manual").upsert({tk:t,price:v,day:todayIso()},{onConflict:"user_id,tk"}));load()}}
+  if(sl){const b=U.buys.find(x=>x.id==sl.dataset.sell),cur=priceOf(b.tk),v=parseFloat(prompt(`Sold ${b.tk} at what price ($)?`,cur?cur.p:b.price));if(v>0){await q(sbc.from("buys").update({sold:true,sell_price:v}).eq("id",b.id));load()}}
+  if(dl&&confirm("Delete this purchase?")){await q(sbc.from("buys").delete().eq("id",dl.dataset.del));load()}
+});
+$("bAdd").onclick=async()=>{const tk=$("bTk").value.trim().toUpperCase().replace(/[^A-Z.]/g,""),price=parseFloat($("bPx").value),amt=parseFloat($("bAmt").value),date=$("bDt").value;
+  if(!tk||!(price>0)||!(amt>0)||!date){$("bMsg").textContent="Fill in stock, buy price, amount and date.";return}
+  await q(sbc.from("buys").insert({tk,price,amt,day:date})); await addWatch(tk);$("bTk").value="";$("bPx").value="";$("bMsg").textContent=tk+" added.";load()};
+async function gate(){
+  const {data:{session}}=await sbc.auth.getSession();
+  $("login").classList.toggle("hidden",!!session); $("app").classList.toggle("hidden",!session);
+  if(session) load();
+}
+$("lGo").onclick=async()=>{$("lMsg").textContent="Signing in...";
+  const {error}=await sbc.auth.signInWithPassword({email:$("lEmail").value.trim(),password:$("lPass").value});
+  $("lMsg").textContent=error?"Wrong email or password.":""; gate()};
+$("lPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("lGo").click()});
+$("logout").onclick=async()=>{await sbc.auth.signOut(); gate()};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("app").classList.contains("hidden"))load()});
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+if(!C.SUPABASE_URL||C.SUPABASE_URL.includes("YOUR-PROJECT")){document.body.innerHTML='<main><h1>Season Watch</h1><p>Setup needed: put your Supabase URL and anon key in docs/config.js.</p></main>'}else gate();
+</script>
+</body>
+</html>
