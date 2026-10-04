@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import os
 import statistics
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -102,9 +103,13 @@ def sb(method, path, body=None, prefer=None):
     req.add_header("Content-Type", "application/json")
     if prefer:
         req.add_header("Prefer", prefer)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        txt = r.read().decode()
-        return json.loads(txt) if txt else None
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            txt = r.read().decode()
+            return json.loads(txt) if txt else None
+    except urllib.error.HTTPError as exc:
+        print(f"  Supabase {method} {path.split('?')[0]} failed: {exc.code} {exc.read().decode()[:300]}")
+        raise
 
 
 def upsert(table, rows, on):
@@ -383,11 +388,18 @@ def run_full():
     for tk in watch + held:
         names.setdefault(tk, tk)
     print(f"News for {len(names)} tickers")
-    rows = []
+    seen, rows = set(), []
     for tk, n in names.items():
-        rows += fetch_news(tk, n)
-    upsert("news", rows, "tk,title")
-    sb("DELETE", f"news?day=lt.{(TODAY - dt.timedelta(days=7)).isoformat()}")
+        for row in fetch_news(tk, n):
+            key = (row["tk"], row["title"])
+            if row["title"] and key not in seen:  # Google often repeats a headline; duplicates break the save
+                seen.add(key)
+                rows.append(row)
+    try:
+        upsert("news", rows, "tk,title")
+        sb("DELETE", f"news?day=lt.{(TODAY - dt.timedelta(days=7)).isoformat()}")
+    except Exception as exc:  # news is a nice-to-have: never let it stop the analysis from saving
+        print(f"  news save skipped: {exc}")
 
     last_day = max((s["day"] for s in stats.values()), default=TODAY.isoformat())
     snapshot = {"asOf": last_day, "asOfLabel": f"{last_day} close (analysis updated {now_ist():%d %b %H:%M} IST)",
