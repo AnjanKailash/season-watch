@@ -229,12 +229,12 @@ function barChart(vals,labels,hl){
 }
 
 // ---------- Cycles tab ----------
-function stockRow(b,c){const pr=priceOf(b.tk),red=["peak","over"].includes(c.status),n=b.hist.length;
+function stockRow(b,c){b.hist=b.hist||[];b.med=b.med||0;const pr=priceOf(b.tk),red=["peak","over"].includes(c.status),n=b.hist.length;
   return `<div class="stock"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${newsChip(b.tk)}</div><div class="price">${pr?money(pr.p):""}</div></div>
    <p class="hist">${n?`Up in ${b.hist.filter(x=>x.r>0).length} of ${n} years in this window · median ${pct(b.med)}`:"Not enough history"}${pr?` · ${pr.src}`:""}</p>
    ${red?"":planBox(b.entry,b.stop,b.target)}
    <div class="actions">${watchBtn(b.tk)}<button class="b g" data-open="${b.tk}" data-cyc="${c.id}">See pattern</button></div></div>`}
-function cycleCard(c){const red=["peak","over"].includes(c.status);
+function cycleCard(c){c.stars=c.stars||1;c.basket=c.basket||[];const red=["peak","over"].includes(c.status);
   return `<div class="card cycle s-${c.status}${red?" redcard":""}"><div class="srow"><h3>${rankB(c.rank)}${esc(c.name)}</h3><span class="st">${STLABEL[c.status]}</span></div>
    <div style="margin-top:4px">${stars(c.stars)} <span class="muted">${c.group==="calendar"?"Whole-market calendar pattern":"Industry season"}</span></div>
    ${red?`<div class="sellban">⚠ This cycle has ${c.status==="over"?"ended":"peaked"}. If you hold these stocks, sell on any up day.</div>`:""}
@@ -389,15 +389,16 @@ async function load(){
       q(sbc.from("watch").select("tk").order("tk")),
       q(sbc.from("buys").select("*").order("id")),
       q(sbc.from("manual").select("tk,price,day"))]);
-    const snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v;
-    M=Object.assign({asOf:"",asOfLabel:"No data yet: run the update once on GitHub",cycles:[],momentum:[],metals:[],season:{}},snap||{});
+    let snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v, note="No data yet: run the update once on GitHub (Actions → Run workflow).";
+    if(snap&&!snap.years){snap=null;note="Old data format: run the update once on GitHub (Actions → Run workflow), then reload.";}
+    M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],season:{}},snap||{});
     M.pricesAt=pa&&pa.at; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
     M.newsBy={}; nw.forEach(n=>(M.newsBy[n.tk]=M.newsBy[n.tk]||[]).push({d:n.day,t:n.title,src:n.source}));
     U={watch:wl.map(r=>r.tk),
        buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
        manual:Object.fromEntries(mn.map(r=>[r.tk,{p:+r.price,d:r.day}]))};
-    renderAll();
-  }catch(e){$("asof").textContent="Couldn't load data. Check the internet connection."}
+  }catch(e){$("asof").textContent="Couldn't load data: "+(e&&(e.message||e.code)||"check the internet connection");console.error(e);return}
+  try{renderAll()}catch(e){$("asof").textContent="Display error: "+e.message+". Run the update on GitHub, then reload.";console.error(e)}
 }
 async function addWatch(tk){const {error}=await sbc.from("watch").insert({tk}); if(error&&error.code!=="23505")throw error}
 
