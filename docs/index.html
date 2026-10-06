@@ -465,9 +465,18 @@ function analysisCard(a,full){const pr=priceOf(a.tk);
    ${a.flags&&a.flags.length?`<ul class="flaglist">${a.flags.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
    ${a.good&&a.good.length?`<ul class="goodlist">${a.good.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
    ${odds}
-   ${a.verdict==="buy"?planBox(a.entry,a.stop,a.target):""}
+   ${swingPlan(a)}
    ${a.waitFor&&a.waitFor.length?`<p style="margin-top:8px"><b>Wait for:</b></p><ul class="waitlist">${a.waitFor.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
    ${full?`<div class="actions"><button class="b" data-open="${a.tk}">📈 Chart & details</button>${watchBtn(a.tk)}</div>`:""}</div>`}
+function swingPlan(a){
+  if(a.verdict==="buy"&&a.entry&&a.stop&&a.target){const L=levels(a.entry,a.stop,a.target);
+    return `<div class="card" style="border:2px solid var(--green);margin-top:10px"><b style="color:var(--green)">✓ Buy plan</b>
+     <p style="margin-top:4px">Buy at <b>${money(L.lo)}–${money(L.hi)}</b> · Target <b style="color:var(--green)">${money(L.tgtP)}</b> (+${a.target}%) · Stop-loss <b style="color:var(--red)">${money(L.stopP)}</b> (−${a.stop}%)</p>
+     <p class="muted">Usual time frame: ${a.h===5?"about a week":a.h===10?"about 2 weeks":"1–3 months"}.</p></div>`}
+  const why={weak:"similar dips in this stock haven't bounced reliably.",wait:"it has broken down. Wait for the signs below.",avoid:"several warning signs. It may keep falling.",nodip:"it isn't in a dip right now.",new:"too new to have a track record.",na:"not enough price history."}[a.verdict]||"no clear setup.";
+  const next=(a.waitFor||[])[0];
+  return `<div class="card" style="border:2px solid ${a.verdict==="avoid"?"var(--red)":"var(--amber)"};margin-top:10px"><b style="color:${a.verdict==="avoid"?"var(--red)":"var(--amber)"}">✕ Don't buy now</b>
+   <p style="margin-top:4px">Reason: ${why}</p>${next?`<p class="muted">Next: ${esc(next)}</p>`:""}</div>`}
 function showCheck(tk){const a=analysisOf(tk);
   $("swResult").innerHTML=a?analysisCard(a,true):`<div class="card" style="margin-top:10px"><b>${tk}</b> ${esc(nameOf(tk))}<p class="muted">Not analysed yet. It's been added to your watchlist; the full check appears within about 10–20 minutes during US market hours, or after the 6 pm update.</p></div>`;
   if(!a&&!U.watch.includes(tk))addWatch(tk).then(load)}
@@ -542,7 +551,7 @@ function detailsHtml(tk,d){const c=d.c,p=c[c.length-1],n=c.length,hi=Math.max(..
 function glance(tk,c,mo){const an=analysisOf(tk),row=(k,v)=>`<div class="srow" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted" style="font-weight:800">${k}</span><span style="text-align:right">${v}</span></div>`;
   const cyc=c?`${esc(c.name)} <span class="st s-${c.status}" style="font-size:.72rem">${STLABEL[c.status]}</span>`:`<span class="muted">Not in a cycle now</span>`;
   const mom=mo?`<span class="st s-${mo.stage}" style="font-size:.72rem">${STLABEL[mo.stage]}</span>`:`<span class="muted">No momentum now</span>`;
-  const sw=an?`<span class="vpill v-${an.verdict}" style="font-size:.74rem;padding:2px 9px">${VLABEL[an.verdict]||esc(an.label)}</span>${an.tf&&an.verdict!=="new"?`<br><span class="muted" style="font-size:.8rem">${an.win}% past odds · ${esc(an.tfLabel)}</span>`:""}`:`<span class="muted">Not checked yet</span>`;
+  const sw=an?`<span class="vpill v-${an.verdict}" style="font-size:.74rem;padding:2px 9px">${VLABEL[an.verdict]||esc(an.label)}</span>${an.tf&&an.verdict!=="new"?`<br><span class="muted" style="font-size:.8rem">${an.win}% past odds · ${esc(an.tfLabel)}</span>`:""}${an.verdict==="buy"&&an.entry&&an.stop?(()=>{const L=levels(an.entry,an.stop,an.target);return `<br><span style="font-size:.82rem">Buy ${money(L.lo)}–${money(L.hi)} · Target <b style="color:var(--green)">${money(L.tgtP)}</b></span>`})():`<br><span style="font-size:.82rem;color:var(--amber);font-weight:800">Don't buy now</span>`}`:`<span class="muted">Not checked yet</span>`;
   return `<div class="card"><h3>At a glance</h3>${row("Cycle",cyc)}${row("Momentum",mom)}${row("Swing",sw)}</div>`}
 function openSheet(tk,cycId){
   const pr=priceOf(tk);let c=null,b=null;
@@ -553,20 +562,25 @@ function openSheet(tk,cycId){
    <p>${pr?`<span class="price">${money(pr.p)}</span>${chgChip(tk)} <span class="muted">${pr.src}</span>`:"<span class='muted'>No price yet</span>"}</p>
    ${glance(tk,c,mo)}
    <div class="card"><h3>Price chart</h3><div id="chartArea"></div></div><div id="detailsArea"></div>`;
-  const an=analysisOf(tk); if(an)h+=`<h3 style="margin-top:12px">Swing check</h3>`+analysisCard(an,false);
+  const an=analysisOf(tk);
   if(c&&b&&b.hist.length){const ups=b.hist.filter(x=>x.r>0).length;
-    h+=`<div class="card${["peak","over"].includes(c.status)?" redcard":""}"><h3>${esc(c.name)} · ${esc(c.period)}</h3>
+    h+=`<h3 style="margin-top:14px">1. Cycle</h3><div class="card${["peak","over"].includes(c.status)?" redcard":""}"><h3>${esc(c.name)} · ${esc(c.period)}</h3>
      <p class="muted">Return during these exact weeks, each year. Up in <b>${ups} of ${b.hist.length}</b> years, median <b>${pct(b.med)}</b>, average ${pct(b.avg)}.</p>
      ${barChart(b.hist.map(x=>x.r),b.hist.map(x=>x.y))}
      ${["peak","over"].includes(c.status)?`<div class="sellban">⚠ Cycle ${c.status==="over"?"ended":"peaked"}: sell if you hold it.</div>`:planBox(b.entry,b.stop,b.target)}</div>`;}
+  else h+=`<h3 style="margin-top:14px">1. Cycle</h3>`+`<div class="card"><h3>Cycle</h3><p class="muted"><b>Not applicable.</b> This stock isn't part of a current or upcoming seasonal cycle.</p></div>`;
   if(se){const hl=c?cycleMonths(c):null;
     h+=`<div class="card"><h3>Average return by month</h3><p class="muted">Last ${se.n} years.${c?" Highlighted months are the cycle.":""}</p>${barChart(se.months,MON.map(m=>m[0]),hl)}
      <p class="muted">Best month: ${MON[se.months.indexOf(Math.max(...se.months))]} · Worst: ${MON[se.months.indexOf(Math.min(...se.months))]}</p></div>`;}
   const sw=swingOf(tk);
-  if(sw){h+=`<div class="card"><h3>Swing setup · ${esc(sw.tfLabel)}</h3><p class="muted">${esc(sw.rule)}. Rose in <b>${sw.win}%</b> of ${sw.n} similar dips. Last ${sw.past.length} times (gain after ${sw.h===5?"5 days":sw.h===10?"2 weeks":"3 months"}):</p>
-     ${barChart(sw.past,sw.past.map((_,i)=>"#"+(i+1)))}${planBox(sw.entry,sw.stop,sw.target)}</div>`;}
-  if(mo){h+=`<div class="card"><h3>Momentum</h3><p>${STLABEL[mo.stage]} · potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little left"} · ${esc(mo.frame)}</p>${planBox(mo.entry,mo.stop,mo.target)}</div>`;}
-  if(!c&&!mo&&!an)h+=`<div class="card"><p class="muted">Not checked yet: the full check appears after the next update. Until then use the default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
+  h+=`<h3 style="margin-top:14px">2. Momentum</h3>`;
+  if(mo){const lm=liveMom(mo);h+=`<div class="card"><h3>Momentum</h3><p>${STLABEL[mo.stage]} · potential ${lm.potential>0.5?"+"+lm.potential.toFixed(0)+"%":"little left"} · ${esc(mo.frame)}</p>${mo.entry?planBox(mo.entry,mo.stop,mo.target):`<p style="color:var(--amber);font-weight:800">Don't buy now: momentum has stalled.</p>`}</div>`;}
+  else h+=`<div class="card"><h3>Momentum</h3><p class="muted"><b>Not applicable.</b> No strong rally under way in this stock right now.</p></div>`;
+  h+=`<h3 style="margin-top:14px">3. Swing</h3>`;
+  if(an)h+=analysisCard(an,false);
+  if(sw){h+=`<div class="card"><h3>Past similar dips · ${esc(sw.tfLabel)}</h3><p class="muted">${esc(sw.rule)}. Rose in <b>${sw.win}%</b> of ${sw.n} similar dips. Last ${sw.past.length} times (gain after ${sw.h===5?"5 days":sw.h===10?"2 weeks":"3 months"}):</p>
+     ${barChart(sw.past,sw.past.map((_,i)=>"#"+(i+1)))}</div>`;}
+  if(!an)h+=`<div class="card"><p class="muted">Not checked yet: the full swing check appears after the next update. Until then use the default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
   h+=`<div class="card"><h3>News: last 3 days</h3>${news.length?`<ul class="newsl">${news.map(n=>`<li><b>${fmtD(n.d)}</b> · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join("")}</ul>`:`<p class="muted">No news in the last 3 days.</p>`}</div>
    <div class="actions">${watchBtn(tk)}</div>
    <details class="more"><summary>Company results</summary><p>${esc((b&&b.results)||(mo&&mo.results)||"Check the results date before buying.")}</p></details>`;
