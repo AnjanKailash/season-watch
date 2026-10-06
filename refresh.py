@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import os
 import statistics
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -90,6 +91,34 @@ METALS = {"GLD": "Gold", "CPER": "Copper", "SLV": "Silver"}
 FUNDS = {"QQQ", "VOO", "SPY", "IWM", "XLE", "GLD", "CPER", "SLV", "SGOV", "ITB", "COPX"}
 SHOW_MOMENTUM = 5
 YEARS = 10
+
+# Swing universe: liquid, fairly volatile US stocks by category (edit freely)
+SWING_UNIVERSE = {
+    "Tech": {"AAPL": "Apple", "MSFT": "Microsoft", "META": "Meta", "GOOGL": "Alphabet", "AMZN": "Amazon",
+             "NFLX": "Netflix", "CRM": "Salesforce", "PLTR": "Palantir", "SHOP": "Shopify", "UBER": "Uber"},
+    "Chips": {"NVDA": "Nvidia", "AMD": "AMD", "AVGO": "Broadcom", "MU": "Micron", "TSM": "Taiwan Semiconductor",
+              "QCOM": "Qualcomm", "SMH": "Chip stocks fund"},
+    "Consumer": {"TSLA": "Tesla", "NKE": "Nike", "LULU": "Lululemon", "SBUX": "Starbucks", "TGT": "Target",
+                 "HD": "Home Depot", "CMG": "Chipotle"},
+    "Finance": {"JPM": "JPMorgan", "GS": "Goldman Sachs", "BAC": "Bank of America", "V": "Visa", "PYPL": "PayPal",
+                "COIN": "Coinbase"},
+    "Energy": {"XOM": "Exxon Mobil", "OXY": "Occidental", "VLO": "Valero", "SLB": "Schlumberger", "EQT": "EQT"},
+    "Metals": {"FCX": "Freeport (copper)", "NEM": "Newmont (gold)", "GDX": "Gold miners fund", "SLV": "Silver fund",
+               "AA": "Alcoa", "NUE": "Nucor (steel)"},
+    "Industrial": {"CAT": "Caterpillar", "DE": "Deere", "GE": "GE Aerospace", "BA": "Boeing", "ETN": "Eaton"},
+    "Health": {"LLY": "Eli Lilly", "UNH": "UnitedHealth", "ABBV": "AbbVie", "ISRG": "Intuitive Surgical", "MRNA": "Moderna"},
+    "Travel": {"DAL": "Delta Air Lines", "UAL": "United Airlines", "BKNG": "Booking.com", "RCL": "Royal Caribbean",
+               "ABNB": "Airbnb"},
+}
+SWING_SETUPS = {
+    "days": {"label": "Next few days", "h": 5, "min_vol": 1.3,
+             "rule": "Sharp short dip (very oversold) while the stock is in a long-term uptrend"},
+    "weeks": {"label": "1–3 weeks", "h": 10, "min_vol": 1.3,
+              "rule": "7–20% pullback from its 3-month high, still above its 200-day average"},
+    "months": {"label": "1–3 months", "h": 60, "min_vol": 1.0,
+               "rule": "Back near its rising 200-day average after a 15–35% fall from the 1-year high"},
+}
+SWING_PER_TF = 8
 
 
 # ----------------------------------------------------------------------------
@@ -208,9 +237,12 @@ def cycle_status(c):
 
 
 def series(h):
-    close = h["Close"].dropna()
-    dates = [d.date() for d in close.index]
-    return dates, [float(v) for v in close.values]
+    h = h.dropna(subset=["Close"])
+    dates = [d.date() for d in h.index]
+    vals = [float(v) for v in h["Close"].values]
+    lows = [float(v) for v in (h["Low"] if "Low" in h else h["Close"]).fillna(h["Close"]).values]
+    vols = [float(v) for v in (h["Volume"] if "Volume" in h else h["Close"] * 0).fillna(0).values]
+    return dates, vals, lows, vols
 
 
 def window_returns(dates, vals, c):
@@ -267,6 +299,206 @@ def stars(score):
 
 
 # ----------------------------------------------------------------------------
+# Swing setups: pullbacks in strong, volatile stocks, checked against each
+# stock's own last 10 years ("when it looked like this before, what happened?")
+# ----------------------------------------------------------------------------
+def sma_list(vals, n):
+    out, acc = [None] * len(vals), 0.0
+    for i, v in enumerate(vals):
+        acc += v
+        if i >= n:
+            acc -= vals[i - n]
+        if i >= n - 1:
+            out[i] = acc / n
+    return out
+
+
+def rsi_list(vals, n):
+    out = [None] * len(vals)
+    if len(vals) <= n:
+        return out
+    gains = [max(0.0, vals[i] - vals[i - 1]) for i in range(1, n + 1)]
+    losses = [max(0.0, vals[i - 1] - vals[i]) for i in range(1, n + 1)]
+    ag, al = sum(gains) / n, sum(losses) / n
+    for i in range(n, len(vals)):
+        if i > n:
+            ch = vals[i] - vals[i - 1]
+            ag = (ag * (n - 1) + max(0.0, ch)) / n
+            al = (al * (n - 1) + max(0.0, -ch)) / n
+        out[i] = 100.0 if al == 0 else 100 - 100 / (1 + ag / al)
+    return out
+
+
+def swing_signals(vals):
+    s200, r2, r14 = sma_list(vals, 200), rsi_list(vals, 2), rsi_list(vals, 14)
+
+    def sig(tf, i):
+        if i < 260 or s200[i] is None:
+            return False
+        v = vals[i]
+        if tf == "days":
+            return r2[i] is not None and r2[i] < 10 and v > s200[i]
+        if tf == "weeks":
+            hi = max(vals[i - 63:i + 1])
+            dd = (hi - v) / hi * 100
+            return v > s200[i] and 7 <= dd <= 20 and r14[i] is not None and 30 <= r14[i] <= 45
+        hi = max(vals[i - 252:i + 1])
+        dd = (hi - v) / hi * 100
+        return abs(v / s200[i] - 1) <= 0.04 and s200[i] > s200[i - 50] and 15 <= dd <= 35
+    return sig, r14
+
+
+def pctile(xs, p):
+    xs = sorted(xs)
+    k = (len(xs) - 1) * p
+    lo = int(k)
+    return xs[lo] + (xs[min(lo + 1, len(xs) - 1)] - xs[lo]) * (k - lo)
+
+
+def pivots(xs, k=5):
+    """Indexes of swing lows/highs: lowest/highest point within k days either side."""
+    lo, hi = [], []
+    for i in range(k, len(xs) - k):
+        win = xs[i - k:i + k + 1]
+        if xs[i] == min(win):
+            lo.append(i)
+        if xs[i] == max(win):
+            hi.append(i)
+    return lo, hi
+
+
+def setup_odds(vals, sig, tf, last):
+    h, outs, i = SWING_SETUPS[tf]["h"], [], 260
+    while i < last - h:
+        if sig(tf, i):
+            outs.append(round((vals[i + h] / vals[i] - 1) * 100, 1))
+            i += h
+        else:
+            i += 1
+    return outs
+
+
+def analyze(tk, name, cat, dates, vals, lows, vols, st):
+    """Full swing check for one stock: dip setup + historical odds + breakdown rules."""
+    last = len(vals) - 1
+    if last < 300:
+        return None
+    p = vals[last]
+    s200 = sma_list(vals, 200)
+    sig, r14 = swing_signals(vals)
+    above200 = p > s200[last]
+    rising200 = s200[last] > s200[last - 50]
+
+    # --- breakdown rules ("don't catch a falling knife") ---
+    flags, good, wait_for = [], [], []
+    low52 = min(lows[-252:])
+    recent_low_i = max(range(last - 9, last + 1), key=lambda i: -lows[i])
+    if lows[recent_low_i] <= low52 * 1.001:
+        flags.append(f"Made a new 1-year low on {dates[recent_low_i]:%d %b}")
+    support = min(lows[-126:-10])
+    broke_i = next((i for i in range(last - 9, last + 1) if vals[i] < support * 0.99), None)
+    reclaimed = all(v > support for v in vals[-3:])
+    if broke_i is not None and not reclaimed:
+        flags.append(f"Broke below support ${support:,.2f} (its 6-month floor)")
+        wait_for.append(f"Close back above ${support:,.2f} and stay there for 3+ days")
+        avgv = sum(vols[broke_i - 50:broke_i]) / 50 if broke_i >= 50 else 0
+        if avgv and vols[broke_i] > 1.5 * avgv:
+            flags.append("The breakdown came on heavy volume (big sellers)")
+    elif broke_i is not None and reclaimed:
+        good.append(f"Dipped below ${support:,.2f} but has climbed back above it")
+    plo, phi = pivots(lows[-130:]), None
+    plo = [i + len(lows) - 130 for i in plo[0]]
+    phi = [i + len(vals) - 130 for i in pivots(vals[-130:])[1]]
+    if len(plo) >= 2 and len(phi) >= 2:
+        if lows[plo[-1]] < lows[plo[-2]] and vals[phi[-1]] < vals[phi[-2]]:
+            flags.append("Lower highs and lower lows: the trend has turned down")
+            wait_for.append(f"A higher low: a dip that stays above ${lows[plo[-1]]:,.2f}")
+        elif lows[plo[-1]] > lows[plo[-2]]:
+            good.append("Making higher lows: buyers are stepping in earlier")
+    if not above200 and not rising200:
+        flags.append("Below a falling 200-day average")
+        wait_for.append(f"Back above its 200-day average (about ${s200[last]:,.2f})")
+    elif above200:
+        good.append("Above its 200-day average (long-term uptrend)")
+
+    # --- dip setup + this stock's own past odds ---
+    best = None
+    for tf, cfg in SWING_SETUPS.items():
+        now = sig(tf, last)
+        bounce = False
+        if not now and tf == "days" and sig(tf, last - 1) and vals[last] > vals[last - 1]:
+            now, bounce = True, True
+        if not now:
+            continue
+        outs = setup_odds(vals, sig, tf, last)
+        if len(outs) < 8:
+            continue
+        win = round(sum(o > 0 for o in outs) / len(outs) * 100)
+        med = round(statistics.median(outs), 1)
+        score = round(win / 100 * med, 2) if med > 0 else 0
+        if best is None or score > best["score"]:
+            h = cfg["h"]
+            stop = int(min(12, max(3, round(st["dailyMove"] * (h ** 0.5) * 1.2))))
+            p75 = round(pctile(outs, 0.75), 1)
+            best = {"tf": tf, "tfLabel": cfg["label"], "h": h, "rule": cfg["rule"],
+                    "bounce": bool(bounce or vals[last] > vals[last - 1]), "n": len(outs), "win": int(win),
+                    "med": float(med), "p75": float(p75), "past": [float(o) for o in outs[-12:]],
+                    "score": float(score), "stop": stop, "target": int(max(round(p75), round(stop * 1.5), 3)),
+                    "volOk": st["dailyMove"] >= cfg["min_vol"]}
+
+    serious = len(flags)
+    if serious >= 2 and (not above200 or any("1-year low" in f for f in flags)):
+        verdict, label = "avoid", "Avoid for now"
+    elif serious:
+        verdict, label = "wait", "Wait and watch"
+    elif best and best["win"] >= 55 and best["med"] > 0:
+        verdict, label = "buy", "Good dip to buy"
+    elif best:
+        verdict, label = "weak", "Dip, but weak past odds"
+    else:
+        verdict, label = "nodip", "No dip right now"
+        if st["offHigh"] < 4:
+            wait_for.append(f"A 4–5% pullback, to about ${p * 0.955:,.2f}")
+    out = {"tk": tk, "name": name, "cat": cat, "verdict": verdict, "label": label, "flags": flags,
+           "good": good, "waitFor": wait_for, "offHigh": st["offHigh"], "vol": st["dailyMove"],
+           "rsi": int(round(r14[last] or 0)), "support": round(support, 2), "price": round(p, 2),
+           "entry": [round(p * 0.98, 2), round(p, 2)], "day": dates[last].isoformat()}
+    if best:
+        out.update(best)
+    return out
+
+
+def analyze_all(data, stats, names):
+    res = {}
+    for tk, (name, cat) in names.items():
+        if tk in data and tk in stats:
+            try:
+                a = analyze(tk, name, cat, *data[tk], stats[tk])
+                if a:
+                    res[tk] = a
+            except Exception as exc:
+                print(f"  analysis failed for {tk}: {exc}")
+    return res
+
+
+def swing_lists(analysis):
+    swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
+    picks, wait = [], []
+    for tk, a in analysis.items():
+        if tk not in swing_tks:
+            continue
+        if a["verdict"] == "buy" and a.get("volOk"):
+            picks.append(a)
+        elif a["verdict"] in ("wait", "avoid") and (a.get("tf") or a["offHigh"] >= 7):
+            wait.append(a)
+    out = []
+    for tf in SWING_SETUPS:
+        out += sorted([x for x in picks if x["tf"] == tf], key=lambda x: x["score"], reverse=True)[:SWING_PER_TF]
+    wait.sort(key=lambda x: x["offHigh"], reverse=True)
+    return out, wait[:12]
+
+
+# ----------------------------------------------------------------------------
 # Runs
 # ----------------------------------------------------------------------------
 def run_prices():
@@ -274,27 +506,59 @@ def run_prices():
     tks |= {r["tk"] for r in sb("GET", "watch?select=tk") or []}
     tks |= {r["tk"] for r in sb("GET", "buys?select=tk&sold=eq.false") or []}
     print(f"Latest prices for {len(tks)} tickers")
-    rows = []
+    rows, chg = [], {}
     for tk in sorted(tks):
         h = history(tk, "5d")
         if h is not None:
-            rows.append({"tk": tk, "price": round(float(h["Close"].iloc[-1]), 2), "day": h.index[-1].date().isoformat()})
+            c = h["Close"].dropna()
+            rows.append({"tk": tk, "price": round(float(c.iloc[-1]), 2), "day": h.index[-1].date().isoformat()})
+            if len(c) > 1:
+                chg[tk] = round((float(c.iloc[-1]) / float(c.iloc[-2]) - 1) * 100, 2)
     upsert("prices", rows, "tk")
-    upsert("kv", [{"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST")}}], "k")
+    upsert("kv", [{"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST")}},
+                  {"k": "changes", "v": chg}], "k")
+    analyse_new_watch()
+
+
+def analyse_new_watch(limit=5):
+    """Stocks she just searched or added get a full swing check within one price run."""
+    snap_rows = sb("GET", "kv?k=eq.snapshot&select=v") or []
+    if not snap_rows:
+        return
+    snap = snap_rows[0]["v"]
+    have = snap.setdefault("analysis", {})
+    watch = [r["tk"] for r in sb("GET", "watch?select=tk") or []]
+    todo = [tk for tk in watch if tk not in have][:limit]
+    if not todo:
+        return
+    print(f"Analysing newly watched: {todo}")
+    for tk in todo:
+        h = history(tk, f"{YEARS + 1}y")
+        if h is None or len(h) < 300:
+            have[tk] = {"tk": tk, "name": tk, "cat": "Watchlist", "verdict": "na", "label": "Not enough price history",
+                        "flags": [], "good": [], "waitFor": []}
+            continue
+        dates, vals, lows, vols = series(h)
+        a = analyze(tk, tk, "Watchlist", dates, vals, lows, vols, basic_stats(dates, vals))
+        if a:
+            have[tk] = a
+    upsert("kv", [{"k": "snapshot", "v": snap}], "k")
 
 
 def run_full():
     watch = [r["tk"] for r in sb("GET", "watch?select=tk") or []]
     held = [r["tk"] for r in sb("GET", "buys?select=tk&sold=eq.false") or []]
-    tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | set(watch) | set(held)
+    swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
+    tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | swing_tks | set(watch) | set(held)
     print(f"10-year history for {len(tickers)} tickers")
     data, stats, season = {}, {}, {}
     for tk in sorted(tickers):
         h = history(tk, f"{YEARS + 1}y")
         if h is None or len(h) < 70:
             continue
-        dates, vals = series(h)
-        data[tk] = (dates, vals)
+        dates, vals, lows, vols = series(h)
+        time.sleep(0.2)  # be gentle with Yahoo
+        data[tk] = (dates, vals, lows, vols)
         stats[tk] = basic_stats(dates, vals)
         season[tk] = monthly_pattern(h)
     upsert("prices", [{"tk": tk, "price": s["price"], "day": s["day"], "stats": s} for tk, s in stats.items()], "tk")
@@ -318,7 +582,7 @@ def run_full():
         for tk, name in c["basket"]:
             if tk not in data:
                 continue
-            hist = window_returns(*data[tk], c)
+            hist = window_returns(data[tk][0], data[tk][1], c)
             rs = [x["r"] for x in hist]
             win = round(sum(r > 0 for r in rs) / len(rs) * 100) if rs else 0
             med = round(statistics.median(rs), 1) if rs else 0
@@ -385,6 +649,20 @@ def run_full():
     # News (last 3 days) for every recommended stock + her watchlist and holdings
     names = {b["tk"]: b["name"] for c in cycles for b in c["basket"]}
     names.update({m["tk"]: m["name"] for m in momentum})
+    who = {}
+    for c in CYCLES:
+        for tk, n in c["basket"]:
+            who[tk] = (n, "Cycle")
+    for tk, n in MOMENTUM_CANDIDATES.items():
+        who[tk] = (n, "Momentum")
+    for cat, g in SWING_UNIVERSE.items():
+        for tk, n in g.items():
+            who[tk] = (n, cat)
+    for tk in watch + held:
+        who.setdefault(tk, (tk, "Watchlist"))
+    analysis = analyze_all(data, stats, who)
+    swing, swing_wait = swing_lists(analysis)
+    names.update({x["tk"]: x["name"] for x in swing})
     for tk in watch + held:
         names.setdefault(tk, tk)
     print(f"News for {len(names)} tickers")
@@ -403,8 +681,11 @@ def run_full():
 
     last_day = max((s["day"] for s in stats.values()), default=TODAY.isoformat())
     snapshot = {"asOf": last_day, "asOfLabel": f"{last_day} close (analysis updated {now_ist():%d %b %H:%M} IST)",
-                "cycles": cycles, "momentum": momentum, "metals": metals, "season": season, "years": YEARS}
-    upsert("kv", [{"k": "snapshot", "v": snapshot}], "k")
+                "cycles": cycles, "momentum": momentum, "metals": metals, "swing": swing,
+                "swingWait": swing_wait, "analysis": analysis,
+                "season": season, "years": YEARS}
+    chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
+    upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg}], "k")
 
 
 if __name__ == "__main__":
