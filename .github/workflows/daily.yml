@@ -1,7 +1,7 @@
 name: Daily market refresh
 on:
   schedule:
-    - cron: "*/10 13-21 * * 1-5"   # every 10 min in US market hours: latest prices only
+    - cron: "*/10 13-21 * * 1-5"   # every 10 min in US market hours (Mon–Fri): latest prices only
     - cron: "30 12 * * 1-5"        # 6:00 pm India time, Mon–Fri: full analysis before US market opens
   workflow_dispatch: {}            # "Run workflow" button = full analysis
 concurrency:
@@ -10,7 +10,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
