@@ -521,6 +521,30 @@ def run_prices():
     analyse_new_watch()
 
 
+def chart_payload(h, days=252):
+    """1 year of daily candles + 50/200-day averages, for the in-app chart."""
+    h = h.dropna(subset=["Close"])
+    closes = [float(x) for x in h["Close"].values]
+    m50, m200 = sma_list(closes, 50), sma_list(closes, 200)
+    tail = h.iloc[-days:]
+    k = len(h) - len(tail)
+    col = lambda name: [round(float(x), 2) for x in (tail[name] if name in tail else tail["Close"]).fillna(tail["Close"]).values]
+    return {"d": [d.date().isoformat() for d in tail.index], "o": col("Open"), "h": col("High"), "l": col("Low"),
+            "c": col("Close"),
+            "v": [int(x) for x in (tail["Volume"] if "Volume" in tail else tail["Close"] * 0).fillna(0).values],
+            "m50": [None if x is None else round(x, 2) for x in m50[k:]],
+            "m200": [None if x is None else round(x, 2) for x in m200[k:]]}
+
+
+def save_charts(charts):
+    rows = [{"k": f"h:{tk}", "v": v} for tk, v in charts.items()]
+    for i in range(0, len(rows), 10):
+        try:
+            sb("POST", "kv?on_conflict=k", rows[i:i + 10], "resolution=merge-duplicates,return=minimal")
+        except Exception as exc:
+            print(f"  chart save skipped for a batch: {exc}")
+
+
 def analyse_new_watch(limit=5):
     """Stocks she just searched or added get a full swing check within one price run."""
     snap_rows = sb("GET", "kv?k=eq.snapshot&select=v") or []
@@ -541,6 +565,7 @@ def analyse_new_watch(limit=5):
             continue
         dates, vals, lows, vols = series(h)
         a = analyze(tk, tk, "Watchlist", dates, vals, lows, vols, basic_stats(dates, vals))
+        save_charts({tk: chart_payload(h)})
         if a:
             have[tk] = a
     upsert("kv", [{"k": "snapshot", "v": snap}], "k")
@@ -552,12 +577,13 @@ def run_full():
     swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
     tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | swing_tks | set(watch) | set(held)
     print(f"10-year history for {len(tickers)} tickers")
-    data, stats, season = {}, {}, {}
+    data, stats, season, charts = {}, {}, {}, {}
     for tk in sorted(tickers):
         h = history(tk, f"{YEARS + 1}y")
         if h is None or len(h) < 70:
             continue
         dates, vals, lows, vols = series(h)
+        charts[tk] = chart_payload(h)
         time.sleep(0.2)  # be gentle with Yahoo
         data[tk] = (dates, vals, lows, vols)
         stats[tk] = basic_stats(dates, vals)
@@ -688,6 +714,7 @@ def run_full():
                 "season": season, "years": YEARS}
     chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
     snapshot["spark"] = {tk: {"d": data[tk][0][-1].isoformat(), "v": [round(x, 2) for x in data[tk][1][-30:]]} for tk in data}
+    save_charts(charts)
     upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg},
                   {"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
                                          "iso": dt.datetime.now(dt.timezone.utc).isoformat()}}], "k")
