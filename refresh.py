@@ -515,7 +515,8 @@ def run_prices():
             if len(c) > 1:
                 chg[tk] = round((float(c.iloc[-1]) / float(c.iloc[-2]) - 1) * 100, 2)
     upsert("prices", rows, "tk")
-    upsert("kv", [{"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST")}},
+    upsert("kv", [{"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
+                                           "iso": dt.datetime.now(dt.timezone.utc).isoformat()}},
                   {"k": "changes", "v": chg}], "k")
     analyse_new_watch()
 
@@ -606,7 +607,7 @@ def run_full():
         cycles.append({"id": c["id"], "group": c["group"], "name": c["name"], "status": st,
                        "now": st in ("early", "mid"), "start": c["start"], "end": c["end"],
                        "period": f"{s:%d %b} – {e:%d %b}", "peak": c["peak"], "why": c["why"], "buy": buy,
-                       "sellBy": f"By about {(e - dt.timedelta(days=7)):%d %b}", "startIso": s.isoformat(),
+                       "sellBy": f"By about {(e - dt.timedelta(days=7)):%d %b}", "startIso": s.isoformat(), "endIso": e.isoformat(),
                        "strength": strength, "stars": stars(strength), "basket": items})
     live = sorted([c for c in cycles if c["status"] in ("early", "mid", "coming")], key=lambda c: c["strength"], reverse=True)
     for i, c in enumerate(live[:3]):
@@ -623,6 +624,7 @@ def run_full():
         stage = "cooling" if (s["offHigh"] > 8 and s["price"] < s["ma50"]) else "late" if done >= 70 else "steady"
         sp = stop_pct(s)
         momentum.append({"tk": tk, "name": name, "stage": stage, "done": done, "potential": room if stage != "cooling" else 0,
+                         "low3m": s["low3m"], "leg": leg, "kind": "fund" if tk in FUNDS else "stock",
                          "potentialTo": round(s["price"] * (1 + room / 100), 2) if room >= 2 else None,
                          "frame": "next 1–3 months" if tk in FUNDS else "next 3–6 weeks",
                          "stop": sp, "target": int(min(25, max(6, round(room)))) if room >= 6 else 6,
@@ -685,7 +687,10 @@ def run_full():
                 "swingWait": swing_wait, "analysis": analysis,
                 "season": season, "years": YEARS}
     chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
-    upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg}], "k")
+    snapshot["spark"] = {tk: {"d": data[tk][0][-1].isoformat(), "v": [round(x, 2) for x in data[tk][1][-30:]]} for tk in data}
+    upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg},
+                  {"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
+                                         "iso": dt.datetime.now(dt.timezone.utc).isoformat()}}], "k")
 
 
 if __name__ == "__main__":
