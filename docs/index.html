@@ -114,7 +114,7 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.live{animation:none}}
 .vpill{display:inline-block;font-weight:800;font-size:.85rem;border-radius:999px;padding:3px 11px;color:#fff}
-.v-buy{background:var(--green)}.v-weak,.v-wait{background:var(--amber);color:#1B1405}.v-avoid{background:var(--red)}.v-nodip,.v-na{background:var(--muted)}
+.v-buy{background:var(--green)}.v-weak,.v-wait{background:var(--amber);color:#1B1405}.v-avoid{background:var(--red)}.v-nodip,.v-na{background:var(--muted)}.v-new{background:var(--blue)}
 .flaglist,.goodlist,.waitlist{margin:6px 0 0;padding-left:0;list-style:none;font-size:.9rem}
 .flaglist li::before{content:"⚠ ";color:var(--red)} .goodlist li::before{content:"✓ ";color:var(--green)} .waitlist li::before{content:"⏳ "}
 .flaglist li,.goodlist li,.waitlist li{padding:2px 0}
@@ -255,7 +255,7 @@ html,body{overscroll-behavior-y:contain}
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <script>
-const DIR={AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",AMZN:"Amazon",META:"Meta (Facebook)",NVDA:"Nvidia",TSLA:"Tesla",AVGO:"Broadcom",AMD:"AMD",INTC:"Intel",MU:"Micron",QCOM:"Qualcomm",TXN:"Texas Instruments",ARM:"Arm Holdings",TSM:"Taiwan Semiconductor",ASML:"ASML",ORCL:"Oracle",CRM:"Salesforce",ADBE:"Adobe",NOW:"ServiceNow",PLTR:"Palantir",SNOW:"Snowflake",SHOP:"Shopify",UBER:"Uber",ABNB:"Airbnb",NFLX:"Netflix",DIS:"Disney",SPOT:"Spotify",PYPL:"PayPal",V:"Visa",MA:"Mastercard",AXP:"American Express",JPM:"JPMorgan Chase",BAC:"Bank of America",WFC:"Wells Fargo",C:"Citigroup",GS:"Goldman Sachs",MS:"Morgan Stanley",SCHW:"Charles Schwab",BRK_B:"Berkshire Hathaway",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",TJX:"TJX (TJ Maxx)",NKE:"Nike",LULU:"Lululemon",SBUX:"Starbucks",MCD:"McDonald's",CMG:"Chipotle",KO:"Coca-Cola",PEP:"PepsiCo",PG:"Procter & Gamble",CL:"Colgate-Palmolive",PM:"Philip Morris",JNJ:"Johnson & Johnson",PFE:"Pfizer",MRK:"Merck",LLY:"Eli Lilly",ABBV:"AbbVie",UNH:"UnitedHealth",AMGN:"Amgen",NVO:"Novo Nordisk",XOM:"Exxon Mobil",CVX:"Chevron",COP:"ConocoPhillips",OXY:"Occidental Petroleum",VLO:"Valero",MPC:"Marathon Petroleum",PSX:"Phillips 66",EQT:"EQT (natural gas)",AR:"Antero Resources",SLB:"Schlumberger",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",NEM:"Newmont (gold)",GOLD:"Barrick Gold",AA:"Alcoa (aluminium)",NUE:"Nucor (steel)",CAT:"Caterpillar",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",MOS:"Mosaic",BA:"Boeing",GE:"GE Aerospace",LMT:"Lockheed Martin",RTX:"RTX (Raytheon)",HON:"Honeywell",UPS:"UPS",FDX:"FedEx",DAL:"Delta Air Lines",UAL:"United Airlines",AAL:"American Airlines",LUV:"Southwest Airlines",BKNG:"Booking.com",MAR:"Marriott",HLT:"Hilton",RCL:"Royal Caribbean",CCL:"Carnival",CARR:"Carrier",TT:"Trane Technologies",LII:"Lennox",HRB:"H&R Block",INTU:"Intuit (TurboTax)",PLNT:"Planet Fitness",DHI:"D.R. Horton",LEN:"Lennar",F:"Ford",GM:"General Motors",T:"AT&T",VZ:"Verizon",NEE:"NextEra Energy",DUK:"Duke Energy",QQQ:"Top 100 US tech fund",VOO:"Top 500 US companies fund",SPY:"S&P 500 fund",VTI:"Total US market fund",IWM:"Small US companies fund",DIA:"Dow Jones fund",SMH:"Chip stocks fund",XLE:"Energy fund",XLF:"Banks fund",XLU:"Utilities fund",XLV:"Healthcare fund",XRT:"Retail fund",ITB:"Homebuilders fund",VNQ:"Property fund",GLD:"Gold fund",SLV:"Silver fund",CPER:"Copper fund",COPX:"Copper miners fund",GDX:"Gold miners fund",USO:"Oil fund",UNG:"Natural gas fund",SGOV:"T-bill fund (safe)",BIL:"T-bill fund (safe)",TLT:"Long US bonds fund"};
+const DIR={SPCX:"SpaceX",AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",AMZN:"Amazon",META:"Meta (Facebook)",NVDA:"Nvidia",TSLA:"Tesla",AVGO:"Broadcom",AMD:"AMD",INTC:"Intel",MU:"Micron",QCOM:"Qualcomm",TXN:"Texas Instruments",ARM:"Arm Holdings",TSM:"Taiwan Semiconductor",ASML:"ASML",ORCL:"Oracle",CRM:"Salesforce",ADBE:"Adobe",NOW:"ServiceNow",PLTR:"Palantir",SNOW:"Snowflake",SHOP:"Shopify",UBER:"Uber",ABNB:"Airbnb",NFLX:"Netflix",DIS:"Disney",SPOT:"Spotify",PYPL:"PayPal",V:"Visa",MA:"Mastercard",AXP:"American Express",JPM:"JPMorgan Chase",BAC:"Bank of America",WFC:"Wells Fargo",C:"Citigroup",GS:"Goldman Sachs",MS:"Morgan Stanley",SCHW:"Charles Schwab",BRK_B:"Berkshire Hathaway",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",TJX:"TJX (TJ Maxx)",NKE:"Nike",LULU:"Lululemon",SBUX:"Starbucks",MCD:"McDonald's",CMG:"Chipotle",KO:"Coca-Cola",PEP:"PepsiCo",PG:"Procter & Gamble",CL:"Colgate-Palmolive",PM:"Philip Morris",JNJ:"Johnson & Johnson",PFE:"Pfizer",MRK:"Merck",LLY:"Eli Lilly",ABBV:"AbbVie",UNH:"UnitedHealth",AMGN:"Amgen",NVO:"Novo Nordisk",XOM:"Exxon Mobil",CVX:"Chevron",COP:"ConocoPhillips",OXY:"Occidental Petroleum",VLO:"Valero",MPC:"Marathon Petroleum",PSX:"Phillips 66",EQT:"EQT (natural gas)",AR:"Antero Resources",SLB:"Schlumberger",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",NEM:"Newmont (gold)",GOLD:"Barrick Gold",AA:"Alcoa (aluminium)",NUE:"Nucor (steel)",CAT:"Caterpillar",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",MOS:"Mosaic",BA:"Boeing",GE:"GE Aerospace",LMT:"Lockheed Martin",RTX:"RTX (Raytheon)",HON:"Honeywell",UPS:"UPS",FDX:"FedEx",DAL:"Delta Air Lines",UAL:"United Airlines",AAL:"American Airlines",LUV:"Southwest Airlines",BKNG:"Booking.com",MAR:"Marriott",HLT:"Hilton",RCL:"Royal Caribbean",CCL:"Carnival",CARR:"Carrier",TT:"Trane Technologies",LII:"Lennox",HRB:"H&R Block",INTU:"Intuit (TurboTax)",PLNT:"Planet Fitness",DHI:"D.R. Horton",LEN:"Lennar",F:"Ford",GM:"General Motors",T:"AT&T",VZ:"Verizon",NEE:"NextEra Energy",DUK:"Duke Energy",QQQ:"Top 100 US tech fund",VOO:"Top 500 US companies fund",SPY:"S&P 500 fund",VTI:"Total US market fund",IWM:"Small US companies fund",DIA:"Dow Jones fund",SMH:"Chip stocks fund",XLE:"Energy fund",XLF:"Banks fund",XLU:"Utilities fund",XLV:"Healthcare fund",XRT:"Retail fund",ITB:"Homebuilders fund",VNQ:"Property fund",GLD:"Gold fund",SLV:"Silver fund",CPER:"Copper fund",COPX:"Copper miners fund",GDX:"Gold miners fund",USO:"Oil fund",UNG:"Natural gas fund",SGOV:"T-bill fund (safe)",BIL:"T-bill fund (safe)",TLT:"Long US bonds fund"};
 delete DIR.BRK_B; DIR["BRK-B"]="Berkshire Hathaway";
 const FED=["2026-10-28","2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-09","2027-07-28","2027-09-15","2027-10-27","2027-12-08"];
 const HOLIDAYS=[["2026-11-26","Thanksgiving"],["2026-12-25","Christmas"],["2027-01-01","New Year"],["2027-01-18","MLK Day"],["2027-02-15","Presidents' Day"],["2027-03-26","Good Friday"],["2027-05-31","Memorial Day"],["2027-06-18","Juneteenth"],["2027-07-05","Independence Day"],["2027-09-06","Labor Day"],["2027-11-25","Thanksgiving"],["2027-12-24","Christmas"]];
@@ -455,7 +455,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-swtf]"),c=
 
 
 // ---------- Analysis (search + wait list) ----------
-const VLABEL={buy:"Good dip to buy",weak:"Dip, but weak past odds",wait:"Wait and watch",avoid:"Avoid for now",nodip:"No dip right now",na:"Not enough history"};
+const VLABEL={new:"Too new to judge",buy:"Good dip to buy",weak:"Dip, but weak past odds",wait:"Wait and watch",avoid:"Avoid for now",nodip:"No dip right now",na:"Not enough history"};
 function analysisOf(tk){return (M.analysis||{})[tk]||null}
 function analysisCard(a,full){const pr=priceOf(a.tk);
   const odds=a.tf?`<p style="margin-top:8px"><span class="odds">${a.win}%</span> <span class="muted">rose within ${a.h===5?"5 days":a.h===10?"2 weeks":"3 months"} in ${Math.round(a.win*a.n/100)} of ${a.n} similar dips (${esc(a.tfLabel)})</span></p><p class="muted">${esc(a.rule)}. Typical gain ${pct(a.med)} · good cases ${pct(a.p75)}</p>`:"";
@@ -576,17 +576,22 @@ $("sheetBg").onclick=closeSheet;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
 // ---------- Search suggestions ----------
-function universe(){const u={...DIR};M.cycles.forEach(c=>c.basket.forEach(b=>u[b.tk]=b.name));M.momentum.forEach(x=>u[x.tk]=x.name);Object.keys(M.prices).forEach(t=>{if(!u[t])u[t]=t});return u}
+let SYMS=null,symsLoading=null;
+function loadSyms(){if(SYMS||symsLoading)return symsLoading;symsLoading=q(sbc.from("kv").select("v").eq("k","symbols").maybeSingle(),20000).then(r=>{SYMS=(r&&r.v)||{}}).catch(()=>{SYMS={}}).finally(()=>{symsLoading=null});return symsLoading}
+const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
+function universe(){const u=Object.assign({},SYMS||{},DIR);M.cycles.forEach(c=>c.basket.forEach(b=>u[b.tk]=b.name));M.momentum.forEach(x=>u[x.tk]=x.name);Object.keys(M.prices).forEach(t=>{if(!u[t])u[t]=t});return u}
 function attachSuggest(inputId,boxId,onPick){
   const inp=$(inputId),box=$(boxId);
   const render=()=>{const v=inp.value.trim();if(!v){box.classList.add("hidden");return}
-    const up=v.toUpperCase(),lo=v.toLowerCase(),u=universe();
-    const scored=Object.entries(u).map(([t,n])=>[t,n,t===up?0:t.startsWith(up)?1:n.toLowerCase().startsWith(lo)?2:n.toLowerCase().includes(lo)?3:t.includes(up)?4:9]).filter(x=>x[2]<9).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0])).slice(0,8);
-    const typed=up.replace(/[^A-Z.\-]/g,"");
-    let html=scored.map(([t,n])=>`<button type="button" data-pick="${t}"><span><b>${t}</b> ${esc(n)}</span><small>${U.watch.includes(t)?"watching":""}</small></button>`).join("");
-    if(typed&&typed.length<=6&&!u[typed])html+=`<button type="button" data-pick="${typed}"><span>Use code <b>${typed}</b></span><small>not in list</small></button>`;
-    box.innerHTML=html||`<button type="button" disabled><span class="muted">No match</span></button>`;box.classList.remove("hidden")};
-  inp.addEventListener("input",render);inp.addEventListener("focus",render);
+    const up=v.toUpperCase(),nv=norm(v),u=universe();
+    const score=(t,n)=>{const nn=norm(n);return t===up?0:t.startsWith(up)?1:nn.startsWith(nv)?2:nn.includes(nv)?3:t.includes(up)?4:9};
+    const scored=[];for(const t in u){const sc=score(t,u[t]);if(sc<9)scored.push([t,u[t],sc+(DIR[t]?0:0.5)])}
+    scored.sort((a,b)=>a[2]-b[2]||a[0].length-b[0].length||a[0].localeCompare(b[0]));
+    const top=scored.slice(0,8),typed=up.replace(/[^A-Z.\-]/g,"").replace(".","-");
+    let html=top.map(([t,n])=>`<button type="button" data-pick="${t}"><span><b>${t}</b> ${esc(n)}</span><small>${U.watch.includes(t)?"watching":""}</small></button>`).join("");
+    if(typed&&typed.length<=6&&!u[typed]&&(!top.length||typed.length<=5))html+=`<button type="button" data-pick="${typed}"><span>Add by code <b>${typed}</b></span><small>${SYMS?"not found in US list":"checking list…"}</small></button>`;
+    box.innerHTML=html||`<button type="button" disabled><span class="muted">No match. Try the stock code, e.g. SPCX</span></button>`;box.classList.remove("hidden")};
+  inp.addEventListener("input",render);inp.addEventListener("focus",()=>{render();if(!SYMS)loadSyms().then(()=>{if(document.activeElement===inp)render()})});
   inp.addEventListener("blur",()=>setTimeout(()=>box.classList.add("hidden"),200));
   box.addEventListener("pointerdown",e=>{const b=e.target.closest("[data-pick]");if(!b)return;e.preventDefault();box.classList.add("hidden");onPick(b.dataset.pick)});
 }
