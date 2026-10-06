@@ -100,6 +100,25 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
 .chart text{font-family:"Nunito Sans",sans-serif;fill:var(--muted)}
 .newsl{list-style:none;padding:0;margin:6px 0 0}
 .newsl li{padding:7px 0;border-top:1px solid var(--line);font-size:.88rem}
+nav{grid-template-columns:repeat(5,1fr)!important}
+nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowrap}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.fchip{font:inherit;font-weight:800;font-size:.8rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 11px;cursor:pointer}
+.fchip[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.chg{font-size:.78rem;font-weight:800;margin-left:6px;white-space:nowrap}
+.price{white-space:nowrap}
+.chg.up{color:var(--green)}.chg.dn{color:var(--red)}
+.tfpill{display:inline-block;font-size:.74rem;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--blue);color:#fff}
+.odds{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.35rem;color:var(--green)}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.live{animation:none}}
+.vpill{display:inline-block;font-weight:800;font-size:.85rem;border-radius:999px;padding:3px 11px;color:#fff}
+.v-buy{background:var(--green)}.v-weak,.v-wait{background:var(--amber);color:#1B1405}.v-avoid{background:var(--red)}.v-nodip,.v-na{background:var(--muted)}
+.flaglist,.goodlist,.waitlist{margin:6px 0 0;padding-left:0;list-style:none;font-size:.9rem}
+.flaglist li::before{content:"⚠ ";color:var(--red)} .goodlist li::before{content:"✓ ";color:var(--green)} .waitlist li::before{content:"⏳ "}
+.flaglist li,.goodlist li,.waitlist li{padding:2px 0}
+.flaglist li{color:var(--red);font-weight:700} .goodlist li{color:var(--green);font-weight:700}
 .guide h4{margin:12px 0 4px;font-size:.95rem}
 .guide ul{margin:0;padding-left:18px;font-size:.9rem}
 .guide li{padding:2px 0}
@@ -119,6 +138,7 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
 <nav role="tablist">
  <button role="tab" data-tab="cyc" aria-selected="true">Cycles</button>
  <button role="tab" data-tab="mom" aria-selected="false">Momentum</button>
+ <button role="tab" data-tab="swing" aria-selected="false">Swing</button>
  <button role="tab" data-tab="watch" aria-selected="false">Watchlist</button>
  <button role="tab" data-tab="buys" aria-selected="false">My buys<span class="badge hidden" id="sellBadge"></span></button>
 </nav>
@@ -141,6 +161,21 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
  <div id="momList"></div>
  <h2>Gold, copper and silver</h2>
  <div id="metals"></div>
+</section>
+
+<section id="tab-swing" class="hidden">
+ <h2>Swing picks: strong stocks on a dip</h2>
+ <p class="muted">Volatile stocks that are in a temporary dip but still in a bigger uptrend. Each one is checked against its own last 10 years: when it looked like this before, how often did it rise?</p>
+ <div class="card"><h3>Check any stock</h3><p class="muted">Search a company name or code to see if it's a good dip to buy right now.</p>
+  <div class="sugwrap" style="margin-top:8px"><input id="swQ" placeholder="e.g. Nike or NKE" autocomplete="off"><div class="sug hidden" id="swSug"></div></div>
+  <div id="swResult"></div></div>
+ <h2>Today's best dips</h2>
+ <div class="filters" id="tfChips"></div>
+ <div class="filters" id="catChips"></div>
+ <div id="swingList"></div>
+ <h2 id="waitH">Wait and watch: dipping, but broke down</h2>
+ <p class="muted" id="waitP">These are falling, but broke a support level or turned into a downtrend. Don't catch a falling knife: wait for the signs listed.</p>
+ <div id="waitList"></div>
 </section>
 
 <section id="tab-watch" class="hidden">
@@ -180,7 +215,7 @@ delete DIR.BRK_B; DIR["BRK-B"]="Berkshire Hathaway";
 const FED=["2026-10-28","2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-09","2027-07-28","2027-09-15","2027-10-27","2027-12-08"];
 const HOLIDAYS=[["2026-11-26","Thanksgiving"],["2026-12-25","Christmas"],["2027-01-01","New Year"],["2027-01-18","MLK Day"],["2027-02-15","Presidents' Day"],["2027-03-26","Good Friday"],["2027-05-31","Memorial Day"],["2027-06-18","Juneteenth"],["2027-07-05","Independence Day"],["2027-09-06","Labor Day"],["2027-11-25","Thanksgiving"],["2027-12-24","Christmas"]];
 const INAUGURATION_YEAR=2025;
-let M={asOf:"",asOfLabel:"Loading...",cycles:[],momentum:[],metals:[],season:{},prices:{},newsBy:{},pricesAt:null}, U={watch:[],buys:[],manual:{}};
+let M={asOf:"",asOfLabel:"Loading...",cycles:[],momentum:[],metals:[],swing:[],season:{},prices:{},newsBy:{},pricesAt:null,changes:{}}, U={watch:[],buys:[],manual:{}};
 const $=id=>document.getElementById(id);
 const money=n=>(n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=n=>(n>0?"+":"")+n.toFixed(1)+"%";
@@ -203,7 +238,7 @@ function nameOf(tk){for(const c of M.cycles)for(const b of c.basket)if(b.tk===tk
 function cyclesOf(tk){return M.cycles.filter(c=>c.basket.some(b=>b.tk===tk)).map(c=>({c,b:c.basket.find(b=>b.tk===tk)}))}
 function mainCycle(tk){const l=cyclesOf(tk),pr={early:0,mid:0,peak:1,over:1,coming:2};l.sort((a,b)=>pr[a.c.status]-pr[b.c.status]||b.c.strength-a.c.strength);return l[0]||null}
 function momOf(tk){return M.momentum.find(x=>x.tk===tk)||null}
-function planFor(tk){const mc=mainCycle(tk);if(mc)return{stop:mc.b.stop,target:mc.b.target};const m=momOf(tk);if(m)return{stop:m.stop,target:m.target};return{stop:5,target:6}}
+function planFor(tk){const mc=mainCycle(tk);if(mc)return{stop:mc.b.stop,target:mc.b.target};const m=momOf(tk);if(m)return{stop:m.stop,target:m.target};const sw=(M.swing||[]).find(x=>x.tk===tk);if(sw)return{stop:sw.stop,target:sw.target};return{stop:5,target:6}}
 function newsOf(tk){const cut=iso(new Date(TODAY.getTime()-3*86400000));return (M.newsBy[tk]||[]).filter(n=>n.d>=cut)}
 function cycleMonths(c){const sm=+c.start.slice(0,2),em=+c.end.slice(0,2),s=new Set();let m=sm;for(let i=0;i<12;i++){s.add(m-1);if(m===em)break;m=m%12+1}return s}
 
@@ -216,6 +251,7 @@ function planBox(entry,stop,target){if(!entry)return"";const mid=(entry[0]+entry
   return `<div class="plan"><div>Buy on dip to<b>$${entry[0].toFixed(2)}–${entry[1].toFixed(2)}</b></div><div class="t">Target +${target}%<b>${money(mid*(1+target/100))}</b></div><div class="s">Stop-loss −${stop}%<b>${money(mid*(1-stop/100))}</b></div></div>`}
 const CAUTION_COMMON="Check the 3-day news and the results date before buying, keep each buy small, and always set the stop-loss.";
 const boxCaution=t=>`<div class="caution"><b>⚠ Caution:</b> ${t} ${CAUTION_COMMON}</div>`;
+function chgChip(tk){const c=M.changes[tk];if(c==null)return"";return `<span class="chg ${c>=0?"up":"dn"}">${c>=0?"▲":"▼"} ${Math.abs(c).toFixed(1)}%</span>`}
 function newsChip(tk){const n=newsOf(tk).length;return n?`<span class="chip">${n} news</span>`:""}
 
 function barChart(vals,labels,hl){
@@ -230,7 +266,7 @@ function barChart(vals,labels,hl){
 
 // ---------- Cycles tab ----------
 function stockRow(b,c){b.hist=b.hist||[];b.med=b.med||0;const pr=priceOf(b.tk),red=["peak","over"].includes(c.status),n=b.hist.length;
-  return `<div class="stock"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${newsChip(b.tk)}</div><div class="price">${pr?money(pr.p):""}</div></div>
+  return `<div class="stock"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${newsChip(b.tk)}</div><div class="price">${pr?money(pr.p):""}${chgChip(b.tk)}</div></div>
    <p class="hist">${n?`Up in ${b.hist.filter(x=>x.r>0).length} of ${n} years in this window · median ${pct(b.med)}`:"Not enough history"}${pr?` · ${pr.src}`:""}</p>
    ${red?"":planBox(b.entry,b.stop,b.target)}
    <div class="actions">${watchBtn(b.tk)}<button class="b g" data-open="${b.tk}" data-cyc="${c.id}">See pattern</button></div></div>`}
@@ -281,7 +317,7 @@ function renderGuide(){
 // ---------- Momentum tab ----------
 function renderMomentum(){
   $("momList").innerHTML=M.momentum.length?boxCaution("Momentum can reverse suddenly, often on one headline or a results day.")+M.momentum.map((x,i)=>{const pr=priceOf(x.tk);return `<div class="card cycle s-${x.stage}">
-   <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}</div></div>
+   <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}${chgChip(x.tk)}</div></div>
    <span class="st">${STLABEL[x.stage]}</span>${newsChip(x.tk)}${pr?` <span class="muted">${pr.src}</span>`:""}
    <dl class="facts" style="margin-top:10px"><dt>Potential</dt><dd><b>${x.potential>0?"+"+x.potential.toFixed(0)+"%":"Little left"}</b>${x.potentialTo?` (to about ${money(x.potentialTo)})`:""}</dd><dt>Time frame</dt><dd>${esc(x.frame)}</dd></dl>
    <div class="meter"><span style="width:${x.done}%"></span></div><p class="muted">About ${x.done}% of the move looks done (estimate)</p>
@@ -291,6 +327,53 @@ function renderMomentum(){
    <div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">News & pattern</button></div></div>`}).join(""):`<p class="empty">No stock in the list has clear momentum today.</p>`;
   $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${tkBtn(m.tk,m.name)}</h3><span class="muted" style="font-weight:800">${esc(m.status)}</span></div><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
 }
+
+
+// ---------- Swing tab ----------
+let swTf="all",swCat="all";
+function swingOf(tk){return (M.swing||[]).filter(x=>x.tk===tk).sort((a,b)=>b.score-a.score)[0]||null}
+function renderSwing(){
+  const all=M.swing||[],tfs=[["all","All"],["days","Next few days"],["weeks","1–3 weeks"],["months","1–3 months"]];
+  const cats=["all",...new Set(all.map(x=>x.cat))];
+  $("tfChips").innerHTML=tfs.map(([k,l])=>`<button class="fchip" data-swtf="${k}" aria-pressed="${swTf===k}">${l}</button>`).join("");
+  $("catChips").innerHTML=cats.map(c=>`<button class="fchip" data-swcat="${c}" aria-pressed="${swCat===c}">${c==="all"?"All sectors":c}</button>`).join("");
+  const list=all.filter(x=>(swTf==="all"||x.tf===swTf)&&(swCat==="all"||x.cat===swCat)).sort((a,b)=>b.score-a.score);
+  $("swingList").innerHTML=list.length?boxCaution("These are past odds, not promises. A dip can keep falling, so the stop-loss matters most here.")+list.map((x,i)=>{const pr=priceOf(x.tk);
+   return `<div class="card cycle s-${x.bounce?"early":"mid"}">
+    <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}${chgChip(x.tk)}</div></div>
+    <div style="margin-top:4px"><span class="tfpill">${esc(x.tfLabel)}</span> <span class="chip">${esc(x.cat)}</span>${x.bounce?`<span class="chip on">Bounce started</span>`:""}${newsChip(x.tk)}</div>
+    <p class="muted" style="margin-top:8px">${esc(x.rule)}. Now ${x.offHigh.toFixed(0)}% below its 1-year high, moves about ${x.vol.toFixed(1)}% a day.</p>
+    <div class="srow" style="margin-top:6px;align-items:center"><div><span class="odds">${x.win}%</span> <span class="muted">rose within ${x.h===5?"5 days":x.h===10?"2 weeks":"3 months"} in ${Math.round(x.win*x.n/100)} of ${x.n} similar dips</span></div></div>
+    <p class="muted">Typical gain ${pct(x.med)} · good cases ${pct(x.p75)}</p>
+    ${planBox(x.entry,x.stop,x.target)}
+    <div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">Past dips & news</button></div></div>`}).join(""):`<p class="empty">No strong dip setups${swTf!=="all"||swCat!=="all"?" for this filter":" today"}. That's normal: good setups don't appear every day.</p>`;
+}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-swtf]"),c=e.target.closest("[data-swcat]");
+  if(t){swTf=t.dataset.swtf;renderSwing()} if(c){swCat=c.dataset.swcat;renderSwing()}});
+
+
+// ---------- Analysis (search + wait list) ----------
+const VLABEL={buy:"Good dip to buy",weak:"Dip, but weak past odds",wait:"Wait and watch",avoid:"Avoid for now",nodip:"No dip right now",na:"Not enough history"};
+function analysisOf(tk){return (M.analysis||{})[tk]||null}
+function analysisCard(a,full){const pr=priceOf(a.tk);
+  const odds=a.tf?`<p style="margin-top:8px"><span class="odds">${a.win}%</span> <span class="muted">rose within ${a.h===5?"5 days":a.h===10?"2 weeks":"3 months"} in ${Math.round(a.win*a.n/100)} of ${a.n} similar dips (${esc(a.tfLabel)})</span></p><p class="muted">${esc(a.rule)}. Typical gain ${pct(a.med)} · good cases ${pct(a.p75)}</p>`:"";
+  return `<div class="card${a.verdict==="avoid"?" redcard":""}" style="margin-top:10px">
+   <div class="srow"><div>${tkBtn(a.tk,nameOf(a.tk)!==a.tk?nameOf(a.tk):a.name)}</div><div class="price">${pr?money(pr.p):a.price?money(a.price):""}${chgChip(a.tk)}</div></div>
+   <div style="margin-top:6px"><span class="vpill v-${a.verdict}">${VLABEL[a.verdict]||esc(a.label)}</span>${a.offHigh!=null?` <span class="muted">${a.offHigh.toFixed(0)}% below 1-year high</span>`:""}</div>
+   ${a.flags&&a.flags.length?`<ul class="flaglist">${a.flags.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+   ${a.good&&a.good.length?`<ul class="goodlist">${a.good.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+   ${odds}
+   ${a.verdict==="buy"?planBox(a.entry,a.stop,a.target):""}
+   ${a.waitFor&&a.waitFor.length?`<p style="margin-top:8px"><b>Wait for:</b></p><ul class="waitlist">${a.waitFor.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+   ${full?`<div class="actions">${watchBtn(a.tk)}<button class="b g" data-open="${a.tk}">Details & news</button></div>`:""}</div>`}
+function showCheck(tk){const a=analysisOf(tk);
+  $("swResult").innerHTML=a?analysisCard(a,true):`<div class="card" style="margin-top:10px"><b>${tk}</b> ${esc(nameOf(tk))}<p class="muted">Not analysed yet. It's been added to your watchlist; the full check appears within about 10–20 minutes during US market hours, or after the 6 pm update.</p></div>`;
+  if(!a&&!U.watch.includes(tk))addWatch(tk).then(load)}
+function refreshCheck(){const v=$("swQ").value.trim().toUpperCase();if(v&&$("swResult").innerHTML)showCheckQuiet(v)}
+function showCheckQuiet(tk){const a=analysisOf(tk);if(a)$("swResult").innerHTML=analysisCard(a,true)}
+function renderWait(){const w=M.swingWait||[];
+  $("waitH").classList.toggle("hidden",!w.length);$("waitP").classList.toggle("hidden",!w.length);
+  $("waitList").innerHTML=w.map(a=>analysisCard(a,true)).join("")}
 
 // ---------- Detail sheet ----------
 function openSheet(tk,cycId){
@@ -308,8 +391,12 @@ function openSheet(tk,cycId){
   if(se){const hl=c?cycleMonths(c):null;
     h+=`<div class="card"><h3>Average return by month</h3><p class="muted">Last ${se.n} years.${c?" Highlighted months are the cycle.":""}</p>${barChart(se.months,MON.map(m=>m[0]),hl)}
      <p class="muted">Best month: ${MON[se.months.indexOf(Math.max(...se.months))]} · Worst: ${MON[se.months.indexOf(Math.min(...se.months))]}</p></div>`;}
+  const an=analysisOf(tk); if(an)h+=`<h3 style="margin-top:12px">Swing check</h3>`+analysisCard(an,false);
+  const sw=swingOf(tk);
+  if(sw){h+=`<div class="card"><h3>Swing setup · ${esc(sw.tfLabel)}</h3><p class="muted">${esc(sw.rule)}. Rose in <b>${sw.win}%</b> of ${sw.n} similar dips. Last ${sw.past.length} times (gain after ${sw.h===5?"5 days":sw.h===10?"2 weeks":"3 months"}):</p>
+     ${barChart(sw.past,sw.past.map((_,i)=>"#"+(i+1)))}${planBox(sw.entry,sw.stop,sw.target)}</div>`;}
   if(mo){h+=`<div class="card"><h3>Momentum</h3><p>${STLABEL[mo.stage]} · potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little left"} · ${esc(mo.frame)}</p>${planBox(mo.entry,mo.stop,mo.target)}</div>`;}
-  if(!c&&!mo)h+=`<div class="card"><p class="muted">Not in a cycle or momentum list right now. Default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
+  if(!c&&!mo&&!sw)h+=`<div class="card"><p class="muted">Not in a cycle or momentum list right now. Default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
   h+=`<div class="card"><h3>News: last 3 days</h3>${news.length?`<ul class="newsl">${news.map(n=>`<li><b>${fmtD(n.d)}</b> · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join("")}</ul>`:`<p class="muted">No news in the last 3 days.</p>`}</div>
    <div class="actions">${watchBtn(tk)}</div>
    <details class="more"><summary>Company results</summary><p>${esc((b&&b.results)||(mo&&mo.results)||"Check the results date before buying.")}</p></details>`;
@@ -341,7 +428,7 @@ function statusLine(tk){const mc=mainCycle(tk),mo=momOf(tk),bits=[];
   if(mc)bits.push(`Cycle: ${esc(mc.c.name)}, ${STLABEL[mc.c.status]}`);if(mo)bits.push(`Momentum: ${STLABEL[mo.stage]}, potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little"}`);
   return bits.join(" · ")||"Not in the cycle or momentum lists right now."}
 function renderWatch(){
-  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}</div></div>
+  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}${chgChip(t)}</div></div>
     <p class="muted">${statusLine(t)}${pr?" · "+pr.src:" · price comes with the next update"}</p>
     <div class="actions"><button class="b g" data-open="${t}">Details</button><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above.</p>`}
 
@@ -358,6 +445,9 @@ function verdict(b){const pr=priceOf(b.tk),pl=planFor(b.tk),mc=mainCycle(b.tk),m
     else why.push(`Cycle (${mc.c.name}) ${mc.c.status==="coming"?"starts soon":"still running"}. ${mc.c.sellBy}.`)}
   if(mo){if(mo.stage==="cooling"){up("sell");why.push("Its momentum has stopped. Sell on any bounce.")}
     else if(mo.stage==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}}
+  const an=analysisOf(b.tk);
+  if(an&&an.verdict==="avoid"){up("sell");why.push("It broke down ("+an.flags[0].toLowerCase()+"). Sell rather than wait for a recovery.")}
+  else if(an&&an.verdict==="wait"&&an.flags.some(f=>f.startsWith("Broke below"))){up("watch");why.push(an.flags.find(f=>f.startsWith("Broke below"))+". Watch closely; consider selling if it doesn't recover in a few days.")}
   const nn=newsOf(b.tk).length;if(nn)why.push(`${nn} news item${nn>1?"s":""} in the last 3 days: tap the name to read.`);
   return{v,why,g,pr,pl}}
 function renderBuys(){
@@ -377,13 +467,13 @@ function renderBuys(){
     <div class="actions"><button class="b g" data-px="${b.tk}">Type today's price</button><button class="b" data-sell="${b.id}">I sold it</button><button class="b g" data-del="${b.id}">Delete</button></div></div>`).join(""):`<p class="empty">No purchases yet.</p>`;
   $("soldList").innerHTML=sold.length?`<div class="card"><ul class="res">${sold.slice().reverse().map(b=>`<li><span><b>${b.tk}</b> ${money(b.price)} → ${money(b.sellPrice)}</span><span class="${b.pnl>=0?"pos":"neg"}">${money(b.pnl)}</span></li>`).join("")}</ul></div>`:`<p class="empty">Nothing sold yet.</p>`}
 
-function renderAll(){$("asof").textContent="Prices: "+(M.pricesAt?M.pricesAt+" · ":"")+M.asOfLabel;renderCycles();renderMomentum();renderWatch();renderBuys()}
+function renderAll(){$("asof").innerHTML=`<span class="live" aria-hidden="true"></span>Prices: ${esc(M.pricesAt?M.pricesAt+" · ":"")}${esc(M.asOfLabel)}`;renderCycles();renderMomentum();renderSwing();renderWait();refreshCheck();renderWatch();renderBuys()}
 
 // ---------- data ----------
 async function load(){
   try{
     const [kv,pr,nw,wl,by,mn]=await Promise.all([
-      q(sbc.from("kv").select("k,v").in("k",["snapshot","pricesAt"])),
+      q(sbc.from("kv").select("k,v").in("k",["snapshot","pricesAt","changes"])),
       q(sbc.from("prices").select("tk,price,day")),
       q(sbc.from("news").select("tk,day,title,source").order("day",{ascending:false}).limit(300)),
       q(sbc.from("watch").select("tk").order("tk")),
@@ -391,8 +481,8 @@ async function load(){
       q(sbc.from("manual").select("tk,price,day"))]);
     let snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v, note="No data yet: run the update once on GitHub (Actions → Run workflow).";
     if(snap&&!snap.years){snap=null;note="Old data format: run the update once on GitHub (Actions → Run workflow), then reload.";}
-    M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],season:{}},snap||{});
-    M.pricesAt=pa&&pa.at; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
+    M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],swing:[],swingWait:[],analysis:{},season:{}},snap||{});
+    M.pricesAt=pa&&pa.at; M.changes=(kv.find(r=>r.k==="changes")||{}).v||{}; M.swing=M.swing||[]; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
     M.newsBy={}; nw.forEach(n=>(M.newsBy[n.tk]=M.newsBy[n.tk]||[]).push({d:n.day,t:n.title,src:n.source}));
     U={watch:wl.map(r=>r.tk),
        buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
@@ -407,8 +497,9 @@ $("saveNote").textContent="Saved online: the same data on laptop and phone.";
 $("bDt").value=todayIso();
 document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  ["cyc","mom","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
+  ["cyc","mom","swing","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
 attachSuggest("q","qSug",async t=>{$("q").value="";if(!U.watch.includes(t))await addWatch(t);load()});
+attachSuggest("swQ","swSug",t=>{$("swQ").value=t;showCheck(t)});
 attachSuggest("bTk","bSug",t=>{$("bTk").value=t;$("bName").textContent=nameOf(t);const p=priceOf(t);if(p&&!$("bPx").value)$("bPx").value=p.p});
 document.addEventListener("click",async e=>{
   const o=e.target.closest("[data-open]"),w=e.target.closest("[data-w]"),px=e.target.closest("[data-px]"),sl=e.target.closest("[data-sell]"),dl=e.target.closest("[data-del]");
@@ -431,6 +522,7 @@ $("lGo").onclick=async()=>{$("lMsg").textContent="Signing in...";
   $("lMsg").textContent=error?"Wrong email or password.":"";gate()};
 $("lPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("lGo").click()});
 $("logout").onclick=async()=>{await sbc.auth.signOut();gate()};
+setInterval(()=>{if(!document.hidden&&!$("app").classList.contains("hidden")&&$("sheet").classList.contains("hidden"))load()},120000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("app").classList.contains("hidden"))load()});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 if(!C.SUPABASE_URL||C.SUPABASE_URL.includes("YOUR-PROJECT")){document.body.innerHTML='<main><h1>Season Watch</h1><p>Setup needed: put your Supabase URL and anon key in docs/config.js.</p></main>'}else gate();
