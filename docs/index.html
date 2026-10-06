@@ -539,6 +539,11 @@ function detailsHtml(tk,d){const c=d.c,p=c[c.length-1],n=c.length,hi=Math.max(..
    </div></div>`}
 
 // ---------- Detail sheet ----------
+function glance(tk,c,mo){const an=analysisOf(tk),row=(k,v)=>`<div class="srow" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted" style="font-weight:800">${k}</span><span style="text-align:right">${v}</span></div>`;
+  const cyc=c?`${esc(c.name)} <span class="st s-${c.status}" style="font-size:.72rem">${STLABEL[c.status]}</span>`:`<span class="muted">Not in a cycle now</span>`;
+  const mom=mo?`<span class="st s-${mo.stage}" style="font-size:.72rem">${STLABEL[mo.stage]}</span>`:`<span class="muted">No momentum now</span>`;
+  const sw=an?`<span class="vpill v-${an.verdict}" style="font-size:.74rem;padding:2px 9px">${VLABEL[an.verdict]||esc(an.label)}</span>${an.tf&&an.verdict!=="new"?`<br><span class="muted" style="font-size:.8rem">${an.win}% past odds · ${esc(an.tfLabel)}</span>`:""}`:`<span class="muted">Not checked yet</span>`;
+  return `<div class="card"><h3>At a glance</h3>${row("Cycle",cyc)}${row("Momentum",mom)}${row("Swing",sw)}</div>`}
 function openSheet(tk,cycId){
   const pr=priceOf(tk);let c=null,b=null;
   if(cycId){c=M.cycles.find(x=>x.id===cycId);b=c&&c.basket.find(x=>x.tk===tk)}
@@ -546,7 +551,9 @@ function openSheet(tk,cycId){
   const mo=momOf(tk),se=M.season[tk],news=newsOf(tk),pl=planFor(tk);
   let h=`<button class="b g close" id="shClose">Close ✕</button><h2 style="margin-top:4px">${tk} <span class="muted" style="font-weight:600">${esc(nameOf(tk))}</span></h2>
    <p>${pr?`<span class="price">${money(pr.p)}</span>${chgChip(tk)} <span class="muted">${pr.src}</span>`:"<span class='muted'>No price yet</span>"}</p>
+   ${glance(tk,c,mo)}
    <div class="card"><h3>Price chart</h3><div id="chartArea"></div></div><div id="detailsArea"></div>`;
+  const an=analysisOf(tk); if(an)h+=`<h3 style="margin-top:12px">Swing check</h3>`+analysisCard(an,false);
   if(c&&b&&b.hist.length){const ups=b.hist.filter(x=>x.r>0).length;
     h+=`<div class="card${["peak","over"].includes(c.status)?" redcard":""}"><h3>${esc(c.name)} · ${esc(c.period)}</h3>
      <p class="muted">Return during these exact weeks, each year. Up in <b>${ups} of ${b.hist.length}</b> years, median <b>${pct(b.med)}</b>, average ${pct(b.avg)}.</p>
@@ -555,12 +562,11 @@ function openSheet(tk,cycId){
   if(se){const hl=c?cycleMonths(c):null;
     h+=`<div class="card"><h3>Average return by month</h3><p class="muted">Last ${se.n} years.${c?" Highlighted months are the cycle.":""}</p>${barChart(se.months,MON.map(m=>m[0]),hl)}
      <p class="muted">Best month: ${MON[se.months.indexOf(Math.max(...se.months))]} · Worst: ${MON[se.months.indexOf(Math.min(...se.months))]}</p></div>`;}
-  const an=analysisOf(tk); if(an)h+=`<h3 style="margin-top:12px">Swing check</h3>`+analysisCard(an,false);
   const sw=swingOf(tk);
   if(sw){h+=`<div class="card"><h3>Swing setup · ${esc(sw.tfLabel)}</h3><p class="muted">${esc(sw.rule)}. Rose in <b>${sw.win}%</b> of ${sw.n} similar dips. Last ${sw.past.length} times (gain after ${sw.h===5?"5 days":sw.h===10?"2 weeks":"3 months"}):</p>
      ${barChart(sw.past,sw.past.map((_,i)=>"#"+(i+1)))}${planBox(sw.entry,sw.stop,sw.target)}</div>`;}
   if(mo){h+=`<div class="card"><h3>Momentum</h3><p>${STLABEL[mo.stage]} · potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little left"} · ${esc(mo.frame)}</p>${planBox(mo.entry,mo.stop,mo.target)}</div>`;}
-  if(!c&&!mo&&!sw)h+=`<div class="card"><p class="muted">Not in a cycle or momentum list right now. Default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
+  if(!c&&!mo&&!an)h+=`<div class="card"><p class="muted">Not checked yet: the full check appears after the next update. Until then use the default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
   h+=`<div class="card"><h3>News: last 3 days</h3>${news.length?`<ul class="newsl">${news.map(n=>`<li><b>${fmtD(n.d)}</b> · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join("")}</ul>`:`<p class="muted">No news in the last 3 days.</p>`}</div>
    <div class="actions">${watchBtn(tk)}</div>
    <details class="more"><summary>Company results</summary><p>${esc((b&&b.results)||(mo&&mo.results)||"Check the results date before buying.")}</p></details>`;
@@ -599,7 +605,9 @@ function attachSuggest(inputId,boxId,onPick){
 // ---------- Watchlist ----------
 function statusLine(tk){const mc=mainCycle(tk),mo=momOf(tk),bits=[];
   if(mc)bits.push(`Cycle: ${esc(mc.c.name)}, ${STLABEL[mc.c.status]}`);if(mo)bits.push(`Momentum: ${STLABEL[mo.stage]}, potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little"}`);
-  return bits.join(" · ")||"Not in the cycle or momentum lists right now."}
+  const an=analysisOf(tk);
+  if(an){const odds=an.tf&&an.verdict!=="new"?` (${an.win}% past odds, ${esc(an.tfLabel)})`:"";bits.push(`Swing: <span class="vpill v-${an.verdict}" style="font-size:.74rem;padding:1px 8px">${VLABEL[an.verdict]||esc(an.label)}</span>${odds}${an.flags&&an.flags.length?` · <span style="color:var(--red)">${esc(an.flags[0])}</span>`:""}`)}
+  return bits.join(" · ")||"Not checked yet: the full check appears after the next update."}
 function renderWatch(){
   $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${sparkSvg(t)}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}${chgChip(t)}</div></div>
     <p class="muted">${statusLine(t)}${pr?" · "+pr.src:" · price comes with the next update"}</p>
@@ -619,6 +627,10 @@ function verdict(b){const pr=priceOf(b.tk),pl=planFor(b.tk),mc=mainCycle(b.tk),m
   if(mo){if(mo.stage==="cooling"){up("sell");why.push("Its momentum has stopped. Sell on any bounce.")}
     else if(mo.stage==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}}
   const an=analysisOf(b.tk);
+  if(an&&an.tf&&an.h&&!mc){const days=Math.round((TODAY-new Date(b.date))/86400000),win=Math.round(an.h*1.45);
+    if(days>win){up("watch");why.push(`Swing window (${an.h===5?"about a week":an.h===10?"about 2 weeks":"about 3 months"}) has passed: the typical bounce should have come by now. Consider selling if it isn't working.`)}
+    else why.push(`Swing setup (${an.tfLabel}): ${win-days} days left in its usual window.`)}
+  if(an&&!mc&&!mo&&["buy","weak","nodip"].includes(an.verdict))why.push(`Swing check now: ${VLABEL[an.verdict]}.`);
   if(an&&an.verdict==="avoid"){up("sell");why.push("It broke down ("+an.flags[0].toLowerCase()+"). Sell rather than wait for a recovery.")}
   else if(an&&an.verdict==="wait"&&an.flags.some(f=>f.startsWith("Broke below"))){up("watch");why.push(an.flags.find(f=>f.startsWith("Broke below"))+". Watch closely; consider selling if it doesn't recover in a few days.")}
   const nn=newsOf(b.tk).length;if(nn)why.push(`${nn} news item${nn>1?"s":""} in the last 3 days: tap the name to read.`);
