@@ -281,12 +281,12 @@ def basic_stats(dates, vals):
     hi52 = max(last)
     low3m = min(vals[-63:])
     ma50 = sum(vals[-50:]) / min(50, len(vals))
-    moves = [abs(vals[i] / vals[i - 1] - 1) * 100 for i in range(len(vals) - 20, len(vals))]
+    moves = [abs(vals[i] / vals[i - 1] - 1) * 100 for i in range(max(1, len(vals) - 20), len(vals))] or [0.0]
     return {"price": round(price, 2), "day": dates[-1].isoformat(), "hi52": round(hi52, 2),
             "low3m": round(low3m, 2), "ma50": round(ma50, 2),
             "offHigh": round((hi52 - price) / hi52 * 100, 1),
             "fromLow": round((price - low3m) / low3m * 100, 1),
-            "ret3m": round((price / vals[-63] - 1) * 100, 1),
+            "ret3m": round((price / vals[max(0, len(vals) - 63)] - 1) * 100, 1),
             "dailyMove": round(sum(moves) / len(moves), 2)}
 
 
@@ -382,7 +382,20 @@ def analyze(tk, name, cat, dates, vals, lows, vols, st):
     """Full swing check for one stock: dip setup + historical odds + breakdown rules."""
     last = len(vals) - 1
     if last < 300:
-        return None
+        p = vals[last]
+        flags, good = [], []
+        if last >= 30:
+            sup = min(lows[:-10]) if last > 40 else min(lows)
+            if min(vals[-5:]) < sup * 0.99:
+                flags.append(f"Fell below its lowest level since listing (${sup:,.2f})")
+            m20 = sum(vals[-20:]) / 20
+            (good if p > m20 else flags).append(f"{'Above' if p > m20 else 'Below'} its 20-day average (${m20:,.2f})")
+        return {"tk": tk, "name": name, "cat": cat, "verdict": "new", "label": "Too new to judge",
+                "flags": flags, "good": good,
+                "waitFor": [f"Only {last + 1} trading days of history since {dates[0]:%d %b %Y}. Past-pattern odds need about 300, "
+                            "so treat it as higher-risk and keep any buy small."],
+                "offHigh": st["offHigh"], "vol": st["dailyMove"], "price": round(p, 2), "day": dates[last].isoformat(),
+                "entry": [round(p * 0.98, 2), round(p, 2)]}
     p = vals[last]
     s200 = sma_list(vals, 200)
     sig, r14 = swing_signals(vals)
@@ -545,6 +558,35 @@ def save_charts(charts):
             print(f"  chart save skipped for a batch: {exc}")
 
 
+def fetch_symbols():
+    """All US-listed stocks/ETFs (code + name) for the app's search box."""
+    out = {}
+    for url, sym_col, name_col, etf_col in (
+            ("https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt", 0, 1, 6),
+            ("https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt", 0, 1, 4)):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            lines = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore").splitlines()
+        except Exception as exc:
+            print(f"  symbol list failed ({url}): {exc}")
+            continue
+        for line in lines[1:]:
+            parts = line.split("|")
+            if len(parts) < 7 or line.startswith("File Creation"):
+                continue
+            sym, name = parts[sym_col].strip(), parts[name_col].strip()
+            if not sym or any(ch in sym for ch in "$^") or parts[-2 if "otherlisted" in url else 3].strip() == "Y":
+                continue  # skip test issues and odd share classes
+            low = name.lower()
+            if any(w in low for w in (" warrant", " right", " unit", "preferred", " notes ", "depositary share")):
+                continue
+            nice = name.split(" - ")[0]
+            for junk in (" Common Stock", " Ordinary Shares", " Class A", " Class B", " Common Shares"):
+                nice = nice.replace(junk, "")
+            out[sym.replace(".", "-")] = nice.strip()[:60]
+    return out
+
+
 def analyse_new_watch(limit=5):
     """Stocks she just searched or added get a full swing check within one price run."""
     snap_rows = sb("GET", "kv?k=eq.snapshot&select=v") or []
@@ -559,7 +601,7 @@ def analyse_new_watch(limit=5):
     print(f"Analysing newly watched: {todo}")
     for tk in todo:
         h = history(tk, f"{YEARS + 1}y")
-        if h is None or len(h) < 300:
+        if h is None or len(h) < 20:
             have[tk] = {"tk": tk, "name": tk, "cat": "Watchlist", "verdict": "na", "label": "Not enough price history",
                         "flags": [], "good": [], "waitFor": []}
             continue
@@ -580,7 +622,7 @@ def run_full():
     data, stats, season, charts = {}, {}, {}, {}
     for tk in sorted(tickers):
         h = history(tk, f"{YEARS + 1}y")
-        if h is None or len(h) < 70:
+        if h is None or len(h) < 20:
             continue
         dates, vals, lows, vols = series(h)
         charts[tk] = chart_payload(h)
@@ -715,6 +757,12 @@ def run_full():
     chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
     snapshot["spark"] = {tk: {"d": data[tk][0][-1].isoformat(), "v": [round(x, 2) for x in data[tk][1][-30:]]} for tk in data}
     save_charts(charts)
+    symbols = fetch_symbols()
+    if len(symbols) > 1000:
+        try:
+            upsert("kv", [{"k": "symbols", "v": symbols}], "k")
+        except Exception as exc:
+            print(f"  symbol list save skipped: {exc}")
     upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg},
                   {"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
                                          "iso": dt.datetime.now(dt.timezone.utc).isoformat()}}], "k")
