@@ -119,6 +119,34 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 .flaglist li::before{content:"⚠ ";color:var(--red)} .goodlist li::before{content:"✓ ";color:var(--green)} .waitlist li::before{content:"⏳ "}
 .flaglist li,.goodlist li,.waitlist li{padding:2px 0}
 .flaglist li{color:var(--red);font-weight:700} .goodlist li{color:var(--green);font-weight:700}
+html,body{overscroll-behavior-y:contain}
+#ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translate(-50%,-60px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:800;font-size:.85rem;box-shadow:0 6px 18px rgba(0,0,0,.18);transition:transform .15s;pointer-events:none}
+.statusbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.mkt{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:.82rem;border-radius:999px;padding:4px 10px;border:1px solid var(--line);background:var(--card)}
+.mkt.open{color:var(--green);border-color:var(--green)}
+.mkt .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.mkt.open .dot{background:var(--green);animation:pulse 1.6s infinite}
+#upd{font-size:.82rem;color:var(--muted)}
+.iconbtn{font:inherit;font-weight:800;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;width:34px;height:30px;cursor:pointer}
+.iconbtn.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ctrls{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;align-items:center}
+.ctrls .lbl{font-size:.78rem;color:var(--muted);font-weight:800;margin-right:2px}
+.spark{vertical-align:middle;margin-left:6px}
+.pbar{position:relative;height:12px;border-radius:999px;background:var(--soft);border:1px solid var(--line);margin:10px 0 2px;overflow:visible}
+.pbar .red{position:absolute;top:0;bottom:0;left:0;background:color-mix(in srgb,var(--red) 30%,transparent);border-radius:999px 0 0 999px}
+.pbar .zone{position:absolute;top:-2px;bottom:-2px;background:color-mix(in srgb,var(--green) 35%,transparent);border:1px solid var(--green);border-radius:4px}
+.pbar .tgt{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--green);border-radius:2px}
+.pbar .now{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--ink);border:2px solid var(--card);box-shadow:0 0 0 1px var(--ink)}
+.poslbl{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
+.ltag{display:inline-block;font-size:.74rem;font-weight:800;border-radius:999px;padding:2px 9px;margin-left:6px}
+.lt-zone{background:var(--green);color:#fff;animation:pulse 2s infinite}
+.lt-stop{background:var(--red);color:#fff}.lt-near{background:var(--amber);color:#1B1405}.lt-tgt{background:var(--blue);color:#fff}.lt-above{border:1px solid var(--line);color:var(--muted)}
+.prog{height:6px;border-radius:999px;background:var(--soft);overflow:hidden;margin-top:6px}
+.prog span{display:block;height:100%;background:var(--sc,var(--green))}
+.xpbtn{font:inherit;font-size:.82rem;font-weight:800;background:none;border:none;color:var(--blue);cursor:pointer;padding:6px 0 0}
+.crow{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}
+@media (prefers-reduced-motion:reduce){.lt-zone,.mkt.open .dot,.iconbtn.spin{animation:none}}
 .guide h4{margin:12px 0 4px;font-size:.95rem}
 .guide ul{margin:0;padding-left:18px;font-size:.9rem}
 .guide li{padding:2px 0}
@@ -134,7 +162,8 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 </div>
 <div id="app" class="hidden">
 <h1>Season Watch</h1>
-<p class="asof"><span id="asof"></span> <button class="b g" id="logout" style="padding:4px 10px;font-size:.8rem;margin-left:6px">Sign out</button></p>
+<div class="statusbar"><span class="mkt" id="mkt"><span class="dot"></span><span id="mktTxt">…</span></span><span id="upd"></span><button class="iconbtn" id="refreshBtn" aria-label="Refresh now" title="Refresh now">↻</button><button class="b g" id="logout" style="padding:4px 10px;font-size:.8rem;margin-left:auto">Sign out</button></div>
+<p class="asof" id="asof"></p>
 <nav role="tablist">
  <button role="tab" data-tab="cyc" aria-selected="true">Cycles</button>
  <button role="tab" data-tab="mom" aria-selected="false">Momentum</button>
@@ -144,6 +173,7 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 </nav>
 
 <section id="tab-cyc">
+ <div id="cycCtrls"></div>
  <h2>Current cycles</h2>
  <p class="muted">#1, #2, #3 mark the three strongest cycles (current and upcoming), based on how their stocks did in the same weeks over the last 10 years. Tap a stock to see its pattern.</p>
  <div id="cycNow"></div>
@@ -156,8 +186,9 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 </section>
 
 <section id="tab-mom" class="hidden">
- <h2>Momentum: highest potential first</h2>
- <p class="muted">Potential = how much more a typical rally of this size could still run. Estimates, not promises.</p>
+ <h2>Momentum</h2>
+ <div id="momCtrls"></div>
+ <p class="muted">Potential = how much more a typical rally of this size could still run, recalculated from the live price. Estimates, not promises.</p>
  <div id="momList"></div>
  <h2>Gold, copper and silver</h2>
  <div id="metals"></div>
@@ -204,6 +235,7 @@ nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowr
 </div>
 <footer><span id="saveNote"></span><br>Cycle and momentum views are estimates based on past patterns and recent prices. Not financial advice.</footer>
 </main>
+<div id="ptr">↓ Pull to refresh</div>
 <div id="sheetBg" class="hidden"></div>
 <div id="sheet" class="hidden" role="dialog" aria-modal="true"></div>
 
@@ -264,24 +296,76 @@ function barChart(vals,labels,hl){
   return s+`</svg>`;
 }
 
+// ---------- Live pieces ----------
+const OPEN=new Set();
+function xpBtn(key){return `<button class="xpbtn" data-xp="${key}">${OPEN.has(key)?"Less ▴":"Details ▾"}</button>`}
+function sparkSvg(tk){const sp=(M.spark||{})[tk];if(!sp||!sp.v||sp.v.length<2)return"";const v=sp.v.slice(),pr=priceOf(tk);
+  if(pr&&M.prices[tk]&&M.prices[tk].d>sp.d)v.push(pr.p);
+  const W=84,H=24,mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1,pts=v.map((x,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(x-mn)/r*(H-4)).toFixed(1)}`).join(" ");
+  const up=v[v.length-1]>=v[0];
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-label="30-day price trend ${up?"up":"down"}"><polyline points="${pts}" fill="none" stroke="${up?"var(--green)":"var(--red)"}" stroke-width="1.8" stroke-linejoin="round"/></svg>`}
+function levels(entry,stop,target){const mid=(entry[0]+entry[1])/2;return{lo:entry[0],hi:entry[1],stopP:mid*(1-stop/100),tgtP:mid*(1+target/100)}}
+function liveTag(tk,entry,stop,target){const pr=priceOf(tk);if(!pr||!entry)return"";const L=levels(entry,stop,target),p=pr.p;
+  if(p<=L.stopP)return `<span class="ltag lt-stop">Below stop level</span>`;
+  if(p>=L.tgtP*0.98)return `<span class="ltag lt-tgt">Near target</span>`;
+  if(p>=L.lo*0.995&&p<=L.hi*1.005)return `<span class="ltag lt-zone">In buy zone now</span>`;
+  if(p<L.lo)return `<span class="ltag lt-near">${p<=L.stopP*1.02?"Near stop level":"Below buy zone"}</span>`;
+  return `<span class="ltag lt-above">${((p/L.hi-1)*100).toFixed(1)}% above buy zone</span>`}
+function posBar(tk,entry,stop,target){const pr=priceOf(tk);if(!pr||!entry)return"";const L=levels(entry,stop,target),p=pr.p;
+  const lo=Math.min(L.stopP,p)*0.985,hi=Math.max(L.tgtP,p)*1.015,x=v=>((v-lo)/(hi-lo)*100).toFixed(1);
+  return `<div class="pbar" role="img" aria-label="Price ${money(p)}: stop ${money(L.stopP)}, buy zone ${money(L.lo)} to ${money(L.hi)}, target ${money(L.tgtP)}">
+   <div class="red" style="width:${x(L.stopP)}%"></div><div class="zone" style="left:${x(L.lo)}%;width:${Math.max(1.5,x(L.hi)-x(L.lo))}%"></div>
+   <div class="tgt" style="left:${x(L.tgtP)}%"></div><div class="now" style="left:${x(p)}%"></div></div>
+   <div class="poslbl"><span>Stop ${m0(L.stopP)}</span><span>Buy ${L.hi/L.lo>1.001?m0(L.lo)+"–"+m0(L.hi).replace("$",""):m0(L.lo)}</span><span>Target ${m0(L.tgtP)}</span></div>`}
+const m0=n=>n>=100?"$"+Math.round(n).toLocaleString("en-US"):money(n);
+function zoneDist(tk,entry){const pr=priceOf(tk);if(!pr||!entry)return 999;const p=pr.p;return p<entry[0]?(entry[0]-p)/entry[0]*100:p>entry[1]?(p-entry[1])/entry[1]*100:0}
+function priceBlock(tk){const pr=priceOf(tk);return `<div class="price">${pr?money(pr.p):""}${chgChip(tk)}</div>`}
+function ctrlChips(group,opts,cur){return opts.map(([k,l])=>`<button class="fchip" data-${group}="${k}" aria-pressed="${cur===k}">${l}</button>`).join("")}
+
+// ---------- Market status ----------
+function nyParts(d){const f=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false,weekday:"short"}).formatToParts(d),g=t=>f.find(x=>x.type===t).value;
+  return{y:+g("year"),m:+g("month"),d:+g("day"),h:+g("hour")%24,mi:+g("minute"),wd:g("weekday")}}
+function isTradingDay(y,m,d){const wd=new Date(Date.UTC(y,m-1,d)).getUTCDay(),s=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;return wd>0&&wd<6&&!HOLIDAYS.some(x=>x[0]===s)}
+function marketStatus(){const now=new Date(),n=nyParts(now),mins=n.h*60+n.mi,fmt=m=>m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`;
+  if(isTradingDay(n.y,n.m,n.d)&&mins>=570&&mins<960)return{open:true,txt:`US market open · ${fmt(960-mins)} left`};
+  let wait=0,dd=new Date(Date.UTC(n.y,n.m-1,n.d));
+  if(isTradingDay(n.y,n.m,n.d)&&mins<570)wait=570-mins;
+  else{wait=1440-mins+570;for(let i=0;i<10;i++){dd=new Date(dd.getTime()+86400000);if(isTradingDay(dd.getUTCFullYear(),dd.getUTCMonth()+1,dd.getUTCDate()))break;wait+=1440}}
+  const at=new Date(now.getTime()+wait*60000).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"});
+  return{open:false,txt:wait<=720?`Market closed · opens ${at}`:`Market closed · opens in ${fmt(wait)}`}}
+function renderStatus(){const s=marketStatus();$("mkt").classList.toggle("open",s.open);$("mktTxt").textContent=s.txt;
+  if(M.pricesIso){const m=Math.max(0,Math.round((Date.now()-new Date(M.pricesIso).getTime())/60000));$("upd").textContent=`Prices updated ${m<1?"just now":m<60?m+" min ago":Math.round(m/60)+" h ago"}`}
+  else $("upd").textContent=""}
+
 // ---------- Cycles tab ----------
-function stockRow(b,c){b.hist=b.hist||[];b.med=b.med||0;const pr=priceOf(b.tk),red=["peak","over"].includes(c.status),n=b.hist.length;
-  return `<div class="stock"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${newsChip(b.tk)}</div><div class="price">${pr?money(pr.p):""}${chgChip(b.tk)}</div></div>
-   <p class="hist">${n?`Up in ${b.hist.filter(x=>x.r>0).length} of ${n} years in this window · median ${pct(b.med)}`:"Not enough history"}${pr?` · ${pr.src}`:""}</p>
-   ${red?"":planBox(b.entry,b.stop,b.target)}
-   <div class="actions">${watchBtn(b.tk)}<button class="b g" data-open="${b.tk}" data-cyc="${c.id}">See pattern</button></div></div>`}
-function cycleCard(c){c.stars=c.stars||1;c.basket=c.basket||[];const red=["peak","over"].includes(c.status);
+let cycFilter="all",cycSort="strength";
+function cycleProgress(c){const s=new Date(c.startIso),e=new Date(c.endIso||c.startIso),t=TODAY,day=86400000;
+  if(c.status==="coming"){const n=Math.max(0,Math.round((s-t)/day));return `<p class="muted" style="margin-top:4px">Starts in <b>${n} day${n===1?"":"s"}</b> · buy window opens around ${fmtD(new Date(s.getTime()-20*day).toISOString())}</p>`}
+  const tot=Math.max(1,Math.round((e-s)/day)),dn=Math.min(tot,Math.max(0,Math.round((t-s)/day))),left=Math.max(0,tot-dn);
+  if(c.status==="over")return `<p class="muted" style="margin-top:4px">Ended ${fmtD(c.endIso)}</p>`;
+  return `<div class="prog" style="--sc:${c.status==="peak"?"var(--red)":"var(--green)"}"><span style="width:${(dn/tot*100).toFixed(0)}%"></span></div><p class="muted">Day <b>${dn}</b> of ${tot} · ${left} days left${c.status==="peak"?" · past its usual peak":""}</p>`}
+function stockRow(b,c){b.hist=b.hist||[];b.med=b.med||0;const red=["peak","over"].includes(c.status),n=b.hist.length,key="c:"+c.id+":"+b.tk;
+  return `<div class="crow"><div class="srow"><div>${tkBtn(b.tk,b.name,c.id)}${sparkSvg(b.tk)}</div>${priceBlock(b.tk)}</div>
+   <div>${red?"":liveTag(b.tk,b.entry,b.stop,b.target)}${newsChip(b.tk)}</div>
+   ${red?"":posBar(b.tk,b.entry,b.stop,b.target)}
+   <p class="hist" style="margin-top:4px">${n?`Up in ${b.hist.filter(x=>x.r>0).length} of ${n} years in this window · median ${pct(b.med)}`:"Not enough history"}</p>
+   ${xpBtn(key)}${OPEN.has(key)?`${red?"":planBox(b.entry,b.stop,b.target)}<div class="actions">${watchBtn(b.tk)}<button class="b g" data-open="${b.tk}" data-cyc="${c.id}">See pattern</button></div>`:""}</div>`}
+function cycleCard(c){c.stars=c.stars||1;c.basket=c.basket||[];const red=["peak","over"].includes(c.status),key="cy:"+c.id;
   return `<div class="card cycle s-${c.status}${red?" redcard":""}"><div class="srow"><h3>${rankB(c.rank)}${esc(c.name)}</h3><span class="st">${STLABEL[c.status]}</span></div>
-   <div style="margin-top:4px">${stars(c.stars)} <span class="muted">${c.group==="calendar"?"Whole-market calendar pattern":"Industry season"}</span></div>
+   <div style="margin-top:4px">${stars(c.stars)} <span class="muted">${c.group==="calendar"?"Whole-market pattern":"Industry season"}</span></div>
+   ${cycleProgress(c)}
    ${red?`<div class="sellban">⚠ This cycle has ${c.status==="over"?"ended":"peaked"}. If you hold these stocks, sell on any up day.</div>`:""}
-   <p class="muted">${esc(c.why)}</p>
-   <dl class="facts"><dt>Cycle</dt><dd>${esc(c.period)}</dd><dt>Peak</dt><dd>${esc(c.peak)}</dd><dt>Buy</dt><dd>${esc(c.buy)}</dd><dt>Sell by</dt><dd>${esc(c.sellBy)}</dd></dl>
+   ${xpBtn(key)}${OPEN.has(key)?`<p class="muted">${esc(c.why)}</p><dl class="facts"><dt>Cycle</dt><dd>${esc(c.period)}</dd><dt>Peak</dt><dd>${esc(c.peak)}</dd><dt>Buy</dt><dd>${esc(c.buy)}</dd><dt>Sell by</dt><dd>${esc(c.sellBy)}</dd></dl>`:""}
    ${c.basket.map(b=>stockRow(b,c)).join("")}</div>`}
 function renderCycles(){
-  const by=(a,b)=>(a.rank||9)-(b.rank||9)||b.strength-a.strength;
-  const now=M.cycles.filter(c=>["early","mid"].includes(c.status)).sort(by);
-  const next=M.cycles.filter(c=>c.status==="coming").sort(by);
-  const peak=M.cycles.filter(c=>["peak","over"].includes(c.status));
+  $("cycCtrls").innerHTML=`<div class="ctrls"><span class="lbl">Show</span>`+ctrlChips("cf",[["all","All"],["calendar","Whole market"],["industry","Industries"]],cycFilter)+`</div><div class="ctrls"><span class="lbl">Sort</span>`+ctrlChips("cs",[["strength","Strongest"],["move","Today's move"],["zone","Nearest buy zone"]],cycSort)+`</div>`;
+  const avgMove=c=>{const v=c.basket.map(b=>M.changes[b.tk]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:-99};
+  const near=c=>Math.min(...c.basket.map(b=>zoneDist(b.tk,b.entry)));
+  const by=cycSort==="move"?(a,b)=>avgMove(b)-avgMove(a):cycSort==="zone"?(a,b)=>near(a)-near(b):(a,b)=>(a.rank||9)-(b.rank||9)||b.strength-a.strength;
+  const f=c=>cycFilter==="all"||c.group===cycFilter;
+  const now=M.cycles.filter(c=>["early","mid"].includes(c.status)&&f(c)).sort(by);
+  const next=M.cycles.filter(c=>c.status==="coming"&&f(c)).sort(by);
+  const peak=M.cycles.filter(c=>["peak","over"].includes(c.status)&&f(c));
   $("cycNow").innerHTML=now.length?boxCaution("Past seasonal patterns, not promises. In many years they don't happen.")+now.map(cycleCard).join(""):`<p class="empty">No cycle is running right now.</p>`;
   $("cycNext").innerHTML=next.length?boxCaution("Not started yet: buying too early can tie up money for weeks.")+next.map(cycleCard).join(""):`<p class="empty">Nothing starts in the next 60 days.</p>`;
   $("peakH").classList.toggle("hidden",!peak.length);
@@ -315,19 +399,23 @@ function renderGuide(){
 }
 
 // ---------- Momentum tab ----------
+let momFilter="all",momSort="potential";
+function liveMom(x){const pr=priceOf(x.tk);if(!pr||!x.low3m||!x.leg)return x;const p=pr.p,fromLow=(p-x.low3m)/x.low3m*100,to=x.low3m*(1+x.leg/100);
+  return Object.assign({},x,{done:Math.max(5,Math.min(95,Math.round(fromLow/x.leg*100))),potential:x.stage==="cooling"?0:Math.max(0,(to/p-1)*100),potentialTo:to>p?to:null})}
 function renderMomentum(){
-  $("momList").innerHTML=M.momentum.length?boxCaution("Momentum can reverse suddenly, often on one headline or a results day.")+M.momentum.map((x,i)=>{const pr=priceOf(x.tk);return `<div class="card cycle s-${x.stage}">
-   <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}${chgChip(x.tk)}</div></div>
-   <span class="st">${STLABEL[x.stage]}</span>${newsChip(x.tk)}${pr?` <span class="muted">${pr.src}</span>`:""}
-   <dl class="facts" style="margin-top:10px"><dt>Potential</dt><dd><b>${x.potential>0?"+"+x.potential.toFixed(0)+"%":"Little left"}</b>${x.potentialTo?` (to about ${money(x.potentialTo)})`:""}</dd><dt>Time frame</dt><dd>${esc(x.frame)}</dd></dl>
-   <div class="meter"><span style="width:${x.done}%"></span></div><p class="muted">About ${x.done}% of the move looks done (estimate)</p>
-   ${planBox(x.entry,x.stop,x.target)}
-   <p class="muted" style="margin-top:8px">${esc(x.why)}</p>
+  $("momCtrls").innerHTML=`<div class="ctrls"><span class="lbl">Show</span>`+ctrlChips("mf",[["all","All"],["stock","Stocks"],["fund","Funds & metals"]],momFilter)+`</div><div class="ctrls"><span class="lbl">Sort</span>`+ctrlChips("ms",[["potential","Potential"],["move","Today's move"],["zone","Nearest buy zone"]],momSort)+`</div>`;
+  const live=M.momentum.map(liveMom),rank=new Map(live.slice().sort((a,b)=>b.potential-a.potential).map((x,i)=>[x.tk,i+1]));
+  const list=live.filter(x=>momFilter==="all"||(x.kind||"stock")===momFilter).sort(momSort==="move"?(a,b)=>(M.changes[b.tk]??-99)-(M.changes[a.tk]??-99):momSort==="zone"?(a,b)=>zoneDist(a.tk,a.entry)-zoneDist(b.tk,b.entry):(a,b)=>b.potential-a.potential);
+  $("momList").innerHTML=list.length?boxCaution("Momentum can reverse suddenly, often on one headline or a results day.")+list.map(x=>{const r=rank.get(x.tk),key="m:"+x.tk;return `<div class="card cycle s-${x.stage}">
+   <div class="srow"><h3>${rankB(r<=3?r:0)}${tkBtn(x.tk,x.name)}</h3>${priceBlock(x.tk)}</div>
+   <div style="margin-top:4px"><span class="st">${STLABEL[x.stage]}</span>${sparkSvg(x.tk)}${liveTag(x.tk,x.entry,x.stop,x.target)}${newsChip(x.tk)}</div>
+   <p style="margin-top:8px">Potential <b>${x.potential>0.5?"+"+x.potential.toFixed(0)+"%":"little left"}</b>${x.potentialTo?` <span class="muted">to about ${money(x.potentialTo)} · ${esc(x.frame)}</span>`:""}</p>
+   <div class="meter"><span style="width:${x.done}%"></span></div><p class="muted">About ${x.done}% of the move looks done (live estimate)</p>
+   ${posBar(x.tk,x.entry,x.stop,x.target)}
    ${x.warn?`<div class="warn">${esc(x.warn)}</div>`:""}
-   <div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">News & pattern</button></div></div>`}).join(""):`<p class="empty">No stock in the list has clear momentum today.</p>`;
-  $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${tkBtn(m.tk,m.name)}</h3><span class="muted" style="font-weight:800">${esc(m.status)}</span></div><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
+   ${xpBtn(key)}${OPEN.has(key)?`${planBox(x.entry,x.stop,x.target)}<p class="muted" style="margin-top:8px">${esc(x.why)}</p><div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">News & pattern</button></div>`:""}</div>`}).join(""):`<p class="empty">No stock${momFilter!=="all"?" in this group":""} has clear momentum today.</p>`;
+  $("metals").innerHTML=M.metals.map(m=>`<div class="card"><div class="srow"><h3>${tkBtn(m.tk,m.name)}${sparkSvg(m.tk)}</h3>${priceBlock(m.tk)}</div><p style="margin-top:4px"><b>${esc(m.status)}</b></p><p class="muted">${esc(m.detail)}</p></div>`).join("")||`<p class="empty">No data yet.</p>`;
 }
-
 
 // ---------- Swing tab ----------
 let swTf="all",swCat="all";
@@ -341,10 +429,11 @@ function renderSwing(){
   $("swingList").innerHTML=list.length?boxCaution("These are past odds, not promises. A dip can keep falling, so the stop-loss matters most here.")+list.map((x,i)=>{const pr=priceOf(x.tk);
    return `<div class="card cycle s-${x.bounce?"early":"mid"}">
     <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}${chgChip(x.tk)}</div></div>
-    <div style="margin-top:4px"><span class="tfpill">${esc(x.tfLabel)}</span> <span class="chip">${esc(x.cat)}</span>${x.bounce?`<span class="chip on">Bounce started</span>`:""}${newsChip(x.tk)}</div>
+    <div style="margin-top:4px"><span class="tfpill">${esc(x.tfLabel)}</span> <span class="chip">${esc(x.cat)}</span>${x.bounce?`<span class="chip on">Bounce started</span>`:""}${liveTag(x.tk,x.entry,x.stop,x.target)}${newsChip(x.tk)}${sparkSvg(x.tk)}</div>
     <p class="muted" style="margin-top:8px">${esc(x.rule)}. Now ${x.offHigh.toFixed(0)}% below its 1-year high, moves about ${x.vol.toFixed(1)}% a day.</p>
     <div class="srow" style="margin-top:6px;align-items:center"><div><span class="odds">${x.win}%</span> <span class="muted">rose within ${x.h===5?"5 days":x.h===10?"2 weeks":"3 months"} in ${Math.round(x.win*x.n/100)} of ${x.n} similar dips</span></div></div>
     <p class="muted">Typical gain ${pct(x.med)} · good cases ${pct(x.p75)}</p>
+    ${posBar(x.tk,x.entry,x.stop,x.target)}
     ${planBox(x.entry,x.stop,x.target)}
     <div class="actions">${watchBtn(x.tk)}<button class="b g" data-open="${x.tk}">Past dips & news</button></div></div>`}).join(""):`<p class="empty">No strong dip setups${swTf!=="all"||swCat!=="all"?" for this filter":" today"}. That's normal: good setups don't appear every day.</p>`;
 }
@@ -428,7 +517,7 @@ function statusLine(tk){const mc=mainCycle(tk),mo=momOf(tk),bits=[];
   if(mc)bits.push(`Cycle: ${esc(mc.c.name)}, ${STLABEL[mc.c.status]}`);if(mo)bits.push(`Momentum: ${STLABEL[mo.stage]}, potential ${mo.potential>0?"+"+mo.potential.toFixed(0)+"%":"little"}`);
   return bits.join(" · ")||"Not in the cycle or momentum lists right now."}
 function renderWatch(){
-  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}${chgChip(t)}</div></div>
+  $("wl").innerHTML=U.watch.length?U.watch.map(t=>{const pr=priceOf(t),mc=mainCycle(t),red=mc&&["peak","over"].includes(mc.c.status);return `<div class="card${red?" redcard":""}"><div class="srow"><div>${tkBtn(t,nameOf(t))}${sparkSvg(t)}${newsChip(t)}</div><div class="price">${pr?money(pr.p):"–"}${chgChip(t)}</div></div>
     <p class="muted">${statusLine(t)}${pr?" · "+pr.src:" · price comes with the next update"}</p>
     <div class="actions"><button class="b g" data-open="${t}">Details</button><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above.</p>`}
 
@@ -462,12 +551,13 @@ function renderBuys(){
     <div class="srow"><div>${tkBtn(b.tk,nameOf(b.tk))}</div><span class="verdict">${L[r.v]}</span></div>
     <p class="muted">Bought ${fmtD(b.date)} at ${money(b.price)} · ${money(b.amt)}</p>
     ${r.pr?`<p>Now ${money(r.pr.p)} <span class="muted">(${r.pr.src})</span>: <span class="${r.g>=0?"pos":"neg"}">${pct(r.g)} (${money(b.amt*r.g/100)})</span></p>`:""}
+    ${posBar(b.tk,[b.price,b.price],r.pl.stop,r.pl.target)}
     <div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target +${r.pl.target}%<b>${money(b.price*(1+r.pl.target/100))}</b></div><div class="s">Stop −${r.pl.stop}%<b>${money(b.price*(1-r.pl.stop/100))}</b></div></div>
     <ul style="margin:8px 0 0;padding-left:18px;font-size:.9rem">${r.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
     <div class="actions"><button class="b g" data-px="${b.tk}">Type today's price</button><button class="b" data-sell="${b.id}">I sold it</button><button class="b g" data-del="${b.id}">Delete</button></div></div>`).join(""):`<p class="empty">No purchases yet.</p>`;
   $("soldList").innerHTML=sold.length?`<div class="card"><ul class="res">${sold.slice().reverse().map(b=>`<li><span><b>${b.tk}</b> ${money(b.price)} → ${money(b.sellPrice)}</span><span class="${b.pnl>=0?"pos":"neg"}">${money(b.pnl)}</span></li>`).join("")}</ul></div>`:`<p class="empty">Nothing sold yet.</p>`}
 
-function renderAll(){$("asof").innerHTML=`<span class="live" aria-hidden="true"></span>Prices: ${esc(M.pricesAt?M.pricesAt+" · ":"")}${esc(M.asOfLabel)}`;renderCycles();renderMomentum();renderSwing();renderWait();refreshCheck();renderWatch();renderBuys()}
+function renderAll(){renderStatus();$("asof").textContent=M.asOf?`Analysis: ${M.asOfLabel}`:M.asOfLabel;renderCycles();renderMomentum();renderSwing();renderWait();refreshCheck();renderWatch();renderBuys()}
 
 // ---------- data ----------
 async function load(){
@@ -482,7 +572,7 @@ async function load(){
     let snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v, note="No data yet: run the update once on GitHub (Actions → Run workflow).";
     if(snap&&!snap.years){snap=null;note="Old data format: run the update once on GitHub (Actions → Run workflow), then reload.";}
     M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],swing:[],swingWait:[],analysis:{},season:{}},snap||{});
-    M.pricesAt=pa&&pa.at; M.changes=(kv.find(r=>r.k==="changes")||{}).v||{}; M.swing=M.swing||[]; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
+    M.pricesAt=pa&&pa.at; M.pricesIso=pa&&pa.iso; M.changes=(kv.find(r=>r.k==="changes")||{}).v||{}; M.swing=M.swing||[]; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
     M.newsBy={}; nw.forEach(n=>(M.newsBy[n.tk]=M.newsBy[n.tk]||[]).push({d:n.day,t:n.title,src:n.source}));
     U={watch:wl.map(r=>r.tk),
        buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
@@ -522,6 +612,22 @@ $("lGo").onclick=async()=>{$("lMsg").textContent="Signing in...";
   $("lMsg").textContent=error?"Wrong email or password.":"";gate()};
 $("lPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("lGo").click()});
 $("logout").onclick=async()=>{await sbc.auth.signOut();gate()};
+
+document.addEventListener("click",e=>{const t=e.target;
+  const cf=t.closest("[data-cf]"),cs=t.closest("[data-cs]"),mf=t.closest("[data-mf]"),ms=t.closest("[data-ms]"),xp=t.closest("[data-xp]");
+  if(cf){cycFilter=cf.dataset.cf;renderCycles()} if(cs){cycSort=cs.dataset.cs;renderCycles()}
+  if(mf){momFilter=mf.dataset.mf;renderMomentum()} if(ms){momSort=ms.dataset.ms;renderMomentum()}
+  if(xp){const k=xp.dataset.xp;OPEN.has(k)?OPEN.delete(k):OPEN.add(k);renderCycles();renderMomentum()}});
+let refreshing=false;
+async function doRefresh(){if(refreshing)return;refreshing=true;$("refreshBtn").classList.add("spin");$("ptr").textContent="Refreshing…";$("ptr").style.transform="translate(-50%,0)";
+  try{await load()}finally{refreshing=false;$("refreshBtn").classList.remove("spin");$("ptr").textContent="✓ Updated";setTimeout(()=>{$("ptr").style.transform="translate(-50%,-60px)"},900)}}
+$("refreshBtn").onclick=doRefresh;
+(function(){let y0=null,dy=0;
+  window.addEventListener("touchstart",e=>{if(window.scrollY<=0&&$("sheet").classList.contains("hidden")&&!$("app").classList.contains("hidden")){y0=e.touches[0].clientY;dy=0}else y0=null},{passive:true});
+  window.addEventListener("touchmove",e=>{if(y0==null||refreshing)return;dy=e.touches[0].clientY-y0;if(dy>10){const d=Math.min(dy,110);$("ptr").style.transform=`translate(-50%,${d-60}px)`;$("ptr").textContent=dy>75?"↻ Release to refresh":"↓ Pull to refresh"}},{passive:true});
+  window.addEventListener("touchend",()=>{if(y0==null||refreshing)return;if(dy>75)doRefresh();else $("ptr").style.transform="translate(-50%,-60px)";y0=null;dy=0});
+})();
+setInterval(renderStatus,30000);
 setInterval(()=>{if(!document.hidden&&!$("app").classList.contains("hidden")&&$("sheet").classList.contains("hidden"))load()},120000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("app").classList.contains("hidden"))load()});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
