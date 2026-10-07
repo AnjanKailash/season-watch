@@ -88,7 +88,7 @@ MOMENTUM_CANDIDATES = {
     "GLD": "Gold fund", "CPER": "Copper fund", "FCX": "Freeport-McMoRan (copper)", "SLV": "Silver fund",
 }
 METALS = {"GLD": "Gold", "CPER": "Copper", "SLV": "Silver"}
-FUNDS = {"QQQ", "VOO", "SPY", "IWM", "XLE", "GLD", "CPER", "SLV", "SGOV", "ITB", "COPX"}
+FUNDS = {"QQQ", "VOO", "SPY", "VTI", "VT", "VXUS", "VUG", "VYM", "SCHD", "BND", "IWM", "XLE", "GLD", "CPER", "SLV", "SGOV", "ITB", "COPX"}
 SHOW_MOMENTUM = 5
 YEARS = 10
 
@@ -558,6 +558,125 @@ def save_charts(charts):
             print(f"  chart save skipped for a batch: {exc}")
 
 
+# ----------------------------------------------------------------------------
+# Long-term health: is the business still growing? (for 2+ year holdings)
+# ----------------------------------------------------------------------------
+FINANCIAL_SECTORS = ("Financial Services",)
+
+
+def _row(df, *names):
+    if df is None or getattr(df, "empty", True):
+        return []
+    for n in names:
+        if n in df.index:
+            vals = [float(v) for v in df.loc[n].values if v == v]  # newest first, drop NaN
+            return vals
+    return []
+
+
+def fundamentals(tk):
+    import yfinance as yf
+    try:
+        t = yf.Ticker(tk)
+        info = t.info or {}
+        try:
+            inc = t.income_stmt
+        except Exception:
+            inc = None
+        return info, inc
+    except Exception as exc:
+        print(f"  fundamentals failed for {tk}: {exc}")
+        return {}, None
+
+
+def longterm_view(tk, name, vals, spy_vals):
+    """Plain-language long-term check: red flags that the business/stock has no near future."""
+    flags, good = [], []
+    is_fund = tk in FUNDS
+    p = vals[-1]
+    # --- price-based (works for funds too) ---
+    if len(vals) > 756 and spy_vals and len(spy_vals) > 756:
+        r3 = (p / vals[-757] - 1) * 100
+        m3 = (spy_vals[-1] / spy_vals[-757] - 1) * 100
+        if r3 < m3 - 40:
+            flags.append(f"Far behind the market for 3 years ({r3:+.0f}% vs market {m3:+.0f}%)")
+        elif r3 > m3:
+            good.append(f"Beat the market over 3 years ({r3:+.0f}% vs {m3:+.0f}%)")
+    s200 = sma_list(vals, 200)
+    if len(vals) > 330 and s200[-1]:
+        below = sum(1 for i in range(len(vals) - 126, len(vals)) if s200[i] and vals[i] < s200[i]) / 126
+        if below > 0.8 and s200[-1] < s200[-127]:
+            flags.append("In a long slide: below its falling 200-day average for most of 6 months")
+        elif vals[-1] > s200[-1] and s200[-1] > s200[-127]:
+            good.append("Long-term price trend is rising")
+    fin = {}
+    if not is_fund:
+        info, inc = fundamentals(tk)
+        if info.get("quoteType") in ("ETF", "MUTUALFUND"):
+            is_fund, inc = True, None
+    if not is_fund:
+        rev = _row(inc, "Total Revenue", "Operating Revenue")
+        ni = _row(inc, "Net Income", "Net Income Common Stockholders")
+        op = _row(inc, "Operating Income")
+        if len(rev) >= 3:
+            if rev[0] < rev[1] < rev[2]:
+                flags.append("Sales shrank 2 years in a row")
+            elif rev[0] > rev[1]:
+                good.append(f"Sales growing ({(rev[0] / rev[1] - 1) * 100:+.0f}% last year)")
+        if len(ni) >= 2:
+            if ni[0] < 0 and ni[0] < ni[1]:
+                flags.append("Losing money, and losses got bigger")
+            elif ni[0] > 0:
+                good.append("Profitable")
+        if len(op) >= 3 and len(rev) >= 3 and rev[0] and rev[2]:
+            m0, m2 = op[0] / rev[0] * 100, op[2] / rev[2] * 100
+            if m0 < m2 - 5:
+                flags.append(f"Profit margin falling ({m2:.0f}% → {m0:.0f}% in 2 years)")
+        de = info.get("debtToEquity")
+        if de and de > 200 and info.get("sector") not in FINANCIAL_SECTORS:
+            flags.append("Heavy debt compared with its size")
+        fcf = info.get("freeCashflow")
+        if fcf is not None:
+            (good if fcf > 0 else flags).append("Generates spare cash" if fcf > 0 else "Burning cash (negative free cash flow)")
+        rec, n_an = info.get("recommendationMean"), info.get("numberOfAnalystOpinions") or 0
+        if rec and n_an >= 5:
+            if rec >= 3.5:
+                flags.append(f"Most of {n_an} analysts say sell")
+            elif rec <= 2.2:
+                good.append(f"Most of {n_an} analysts say buy")
+        tgt = info.get("targetMeanPrice")
+        if tgt and n_an >= 5:
+            fin["target"] = round(float(tgt), 2)
+            fin["upside"] = round((tgt / p - 1) * 100, 1)
+        for k_src, k in (("trailingPE", "pe"), ("forwardPE", "fpe"), ("revenueGrowth", "revG"),
+                         ("profitMargins", "margin"), ("sector", "sector")):
+            v = info.get(k_src)
+            if v is not None:
+                fin[k] = round(float(v), 3) if isinstance(v, (int, float)) else v
+        fin["years"] = min(len(rev), 4)
+    n = len(flags)
+    verdict = "sell" if n >= 3 else "watch" if n == 2 else "healthy"
+    label = {"sell": "Consider selling: business weakening", "watch": "Watch closely",
+             "healthy": "Healthy: fine to hold"}[verdict]
+    if not is_fund and fin.get("years", 0) < 2 and n < 3:
+        verdict, label = ("watch" if n else "unknown"), ("Watch closely" if n else "Not enough company data")
+    return {"tk": tk, "name": name, "verdict": verdict, "label": label, "flags": flags, "good": good,
+            "fund": is_fund, **fin}
+
+
+def longterm_all(data, names):
+    spy = data.get("SPY", (None, []))[1]
+    out = {}
+    for tk, name in names.items():
+        if tk in data:
+            try:
+                out[tk] = longterm_view(tk, name, data[tk][1], spy)
+                time.sleep(0.3)
+            except Exception as exc:
+                print(f"  long-term check failed for {tk}: {exc}")
+    return out
+
+
 def fetch_symbols():
     """All US-listed stocks/ETFs (code + name) for the app's search box."""
     out = {}
@@ -610,6 +729,12 @@ def analyse_new_watch(limit=5):
         save_charts({tk: chart_payload(h)})
         if a:
             have[tk] = a
+        try:
+            spy_h = history("SPY", f"{YEARS + 1}y")
+            spy_v = series(spy_h)[1] if spy_h is not None else []
+            snap.setdefault("longterm", {})[tk] = longterm_view(tk, tk, vals, spy_v)
+        except Exception as exc:
+            print(f"  long-term check failed for {tk}: {exc}")
     upsert("kv", [{"k": "snapshot", "v": snap}], "k")
 
 
@@ -617,7 +742,7 @@ def run_full():
     watch = [r["tk"] for r in sb("GET", "watch?select=tk") or []]
     held = [r["tk"] for r in sb("GET", "buys?select=tk&sold=eq.false") or []]
     swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
-    tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | swing_tks | set(watch) | set(held)
+    tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | swing_tks | set(watch) | set(held) | {"SPY"}
     print(f"10-year history for {len(tickers)} tickers")
     data, stats, season, charts = {}, {}, {}, {}
     for tk in sorted(tickers):
@@ -731,6 +856,8 @@ def run_full():
     for tk in watch + held:
         who.setdefault(tk, (tk, "Watchlist"))
     analysis = analyze_all(data, stats, who)
+    print("Long-term checks...")
+    longterm = longterm_all(data, {tk: v[0] for tk, v in who.items()})
     swing, swing_wait = swing_lists(analysis)
     names.update({x["tk"]: x["name"] for x in swing})
     for tk in watch + held:
@@ -752,7 +879,7 @@ def run_full():
     last_day = max((s["day"] for s in stats.values()), default=TODAY.isoformat())
     snapshot = {"asOf": last_day, "asOfLabel": f"{last_day} close (analysis updated {now_ist():%d %b %H:%M} IST)",
                 "cycles": cycles, "momentum": momentum, "metals": metals, "swing": swing,
-                "swingWait": swing_wait, "analysis": analysis,
+                "swingWait": swing_wait, "analysis": analysis, "longterm": longterm,
                 "season": season, "years": YEARS}
     chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
     snapshot["spark"] = {tk: {"d": data[tk][0][-1].isoformat(), "v": [round(x, 2) for x in data[tk][1][-30:]]} for tk in data}
