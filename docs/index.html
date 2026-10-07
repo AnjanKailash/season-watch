@@ -100,7 +100,7 @@ footer{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
 .chart text{font-family:"Nunito Sans",sans-serif;fill:var(--muted)}
 .newsl{list-style:none;padding:0;margin:6px 0 0}
 .newsl li{padding:7px 0;border-top:1px solid var(--line);font-size:.88rem}
-nav{grid-template-columns:repeat(5,1fr)!important}
+nav{display:flex!important;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav button{flex:1 0 auto;padding:9px 10px!important}
 nav button{font-size:.76rem!important;padding:9px 2px!important;white-space:nowrap}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .fchip{font:inherit;font-weight:800;font-size:.8rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 11px;cursor:pointer}
@@ -181,6 +181,7 @@ html,body{overscroll-behavior-y:contain}
  <button role="tab" data-tab="cyc" aria-selected="true">Cycles</button>
  <button role="tab" data-tab="mom" aria-selected="false">Momentum</button>
  <button role="tab" data-tab="swing" aria-selected="false">Swing</button>
+ <button role="tab" data-tab="lt" aria-selected="false">Long term</button>
  <button role="tab" data-tab="watch" aria-selected="false">Watchlist</button>
  <button role="tab" data-tab="buys" aria-selected="false">My buys<span class="badge hidden" id="sellBadge"></span></button>
 </nav>
@@ -222,6 +223,21 @@ html,body{overscroll-behavior-y:contain}
  <div id="waitList"></div>
 </section>
 
+<section id="tab-lt" class="hidden">
+ <h2>Long term: is the business still healthy?</h2>
+ <p class="muted">For holdings you plan to keep 2+ years. Price dips are ignored here; only signs that the business itself is weakening count.</p>
+ <div class="card"><h3>Check any stock</h3>
+  <div class="sugwrap" style="margin-top:8px"><input id="ltQ" placeholder="e.g. Amazon or AMZN" autocomplete="off"><div class="sug hidden" id="ltSug"></div></div>
+  <div id="ltResult"></div></div>
+ <h2>My long-term holdings</h2>
+ <div id="ltList"></div>
+ <details class="more card"><summary>What is checked</summary><ul class="goodlist" style="color:var(--ink)">
+  <li style="color:var(--ink);font-weight:400">Sales: growing, or shrinking 2 years in a row</li><li style="color:var(--ink);font-weight:400">Profit: profitable, or losses getting bigger</li>
+  <li style="color:var(--ink);font-weight:400">Profit margin falling sharply · Heavy debt · Burning cash</li><li style="color:var(--ink);font-weight:400">3-year return vs the whole market · Long slide below a falling 200-day average</li>
+  <li style="color:var(--ink);font-weight:400">What Wall Street analysts say, and their average price target</li></ul>
+  <p class="muted">0–1 warning: Healthy · 2: Watch closely · 3 or more: Consider selling.</p></details>
+</section>
+
 <section id="tab-watch" class="hidden">
  <h2>Search</h2>
  <div class="sugwrap"><input id="q" placeholder="Company name or code, e.g. Apple or AAPL" autocomplete="off"><div class="sug hidden" id="qSug"></div></div>
@@ -237,6 +253,7 @@ html,body{overscroll-behavior-y:contain}
  <div class="card"><div class="form">
   <div class="sugwrap"><label for="bTk">Stock (name or code)</label><input id="bTk" placeholder="e.g. Target or TGT" autocomplete="off"><div class="sug hidden" id="bSug"></div></div>
   <div><label for="bPx">Buy price ($)</label><input id="bPx" type="number" inputmode="decimal" step="any" min="0"></div>
+  <div><label for="bTerm">Holding type</label><select id="bTerm" style="width:100%;font:inherit;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink)"><option value="short" selected>Short-term (swing)</option><option value="mid">Mid-term (1–6 months)</option><option value="long">Long-term (2+ years)</option></select></div>
   <div><label for="bAmt">Amount ($)</label><input id="bAmt" type="number" inputmode="decimal" step="any" min="0" value="500"></div>
   <div><label for="bDt">Date</label><input id="bDt" type="date"></div>
  </div><p class="muted" id="bName"></p><div class="actions"><button class="b" id="bAdd">Add purchase</button></div><p class="muted" id="bMsg"></p></div>
@@ -255,7 +272,7 @@ html,body{overscroll-behavior-y:contain}
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
 <script>
-const DIR={SPCX:"SpaceX",AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",AMZN:"Amazon",META:"Meta (Facebook)",NVDA:"Nvidia",TSLA:"Tesla",AVGO:"Broadcom",AMD:"AMD",INTC:"Intel",MU:"Micron",QCOM:"Qualcomm",TXN:"Texas Instruments",ARM:"Arm Holdings",TSM:"Taiwan Semiconductor",ASML:"ASML",ORCL:"Oracle",CRM:"Salesforce",ADBE:"Adobe",NOW:"ServiceNow",PLTR:"Palantir",SNOW:"Snowflake",SHOP:"Shopify",UBER:"Uber",ABNB:"Airbnb",NFLX:"Netflix",DIS:"Disney",SPOT:"Spotify",PYPL:"PayPal",V:"Visa",MA:"Mastercard",AXP:"American Express",JPM:"JPMorgan Chase",BAC:"Bank of America",WFC:"Wells Fargo",C:"Citigroup",GS:"Goldman Sachs",MS:"Morgan Stanley",SCHW:"Charles Schwab",BRK_B:"Berkshire Hathaway",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",TJX:"TJX (TJ Maxx)",NKE:"Nike",LULU:"Lululemon",SBUX:"Starbucks",MCD:"McDonald's",CMG:"Chipotle",KO:"Coca-Cola",PEP:"PepsiCo",PG:"Procter & Gamble",CL:"Colgate-Palmolive",PM:"Philip Morris",JNJ:"Johnson & Johnson",PFE:"Pfizer",MRK:"Merck",LLY:"Eli Lilly",ABBV:"AbbVie",UNH:"UnitedHealth",AMGN:"Amgen",NVO:"Novo Nordisk",XOM:"Exxon Mobil",CVX:"Chevron",COP:"ConocoPhillips",OXY:"Occidental Petroleum",VLO:"Valero",MPC:"Marathon Petroleum",PSX:"Phillips 66",EQT:"EQT (natural gas)",AR:"Antero Resources",SLB:"Schlumberger",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",NEM:"Newmont (gold)",GOLD:"Barrick Gold",AA:"Alcoa (aluminium)",NUE:"Nucor (steel)",CAT:"Caterpillar",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",MOS:"Mosaic",BA:"Boeing",GE:"GE Aerospace",LMT:"Lockheed Martin",RTX:"RTX (Raytheon)",HON:"Honeywell",UPS:"UPS",FDX:"FedEx",DAL:"Delta Air Lines",UAL:"United Airlines",AAL:"American Airlines",LUV:"Southwest Airlines",BKNG:"Booking.com",MAR:"Marriott",HLT:"Hilton",RCL:"Royal Caribbean",CCL:"Carnival",CARR:"Carrier",TT:"Trane Technologies",LII:"Lennox",HRB:"H&R Block",INTU:"Intuit (TurboTax)",PLNT:"Planet Fitness",DHI:"D.R. Horton",LEN:"Lennar",F:"Ford",GM:"General Motors",T:"AT&T",VZ:"Verizon",NEE:"NextEra Energy",DUK:"Duke Energy",QQQ:"Top 100 US tech fund",VOO:"Top 500 US companies fund",SPY:"S&P 500 fund",VTI:"Total US market fund",IWM:"Small US companies fund",DIA:"Dow Jones fund",SMH:"Chip stocks fund",XLE:"Energy fund",XLF:"Banks fund",XLU:"Utilities fund",XLV:"Healthcare fund",XRT:"Retail fund",ITB:"Homebuilders fund",VNQ:"Property fund",GLD:"Gold fund",SLV:"Silver fund",CPER:"Copper fund",COPX:"Copper miners fund",GDX:"Gold miners fund",USO:"Oil fund",UNG:"Natural gas fund",SGOV:"T-bill fund (safe)",BIL:"T-bill fund (safe)",TLT:"Long US bonds fund"};
+const DIR={SPCX:"SpaceX",AAPL:"Apple",MSFT:"Microsoft",GOOGL:"Alphabet (Google)",AMZN:"Amazon",META:"Meta (Facebook)",NVDA:"Nvidia",TSLA:"Tesla",AVGO:"Broadcom",AMD:"AMD",INTC:"Intel",MU:"Micron",QCOM:"Qualcomm",TXN:"Texas Instruments",ARM:"Arm Holdings",TSM:"Taiwan Semiconductor",ASML:"ASML",ORCL:"Oracle",CRM:"Salesforce",ADBE:"Adobe",NOW:"ServiceNow",PLTR:"Palantir",SNOW:"Snowflake",SHOP:"Shopify",UBER:"Uber",ABNB:"Airbnb",NFLX:"Netflix",DIS:"Disney",SPOT:"Spotify",PYPL:"PayPal",V:"Visa",MA:"Mastercard",AXP:"American Express",JPM:"JPMorgan Chase",BAC:"Bank of America",WFC:"Wells Fargo",C:"Citigroup",GS:"Goldman Sachs",MS:"Morgan Stanley",SCHW:"Charles Schwab",BRK_B:"Berkshire Hathaway",WMT:"Walmart",COST:"Costco",TGT:"Target",HD:"Home Depot",LOW:"Lowe's",BBY:"Best Buy",TJX:"TJX (TJ Maxx)",NKE:"Nike",LULU:"Lululemon",SBUX:"Starbucks",MCD:"McDonald's",CMG:"Chipotle",KO:"Coca-Cola",PEP:"PepsiCo",PG:"Procter & Gamble",CL:"Colgate-Palmolive",PM:"Philip Morris",JNJ:"Johnson & Johnson",PFE:"Pfizer",MRK:"Merck",LLY:"Eli Lilly",ABBV:"AbbVie",UNH:"UnitedHealth",AMGN:"Amgen",NVO:"Novo Nordisk",XOM:"Exxon Mobil",CVX:"Chevron",COP:"ConocoPhillips",OXY:"Occidental Petroleum",VLO:"Valero",MPC:"Marathon Petroleum",PSX:"Phillips 66",EQT:"EQT (natural gas)",AR:"Antero Resources",SLB:"Schlumberger",FCX:"Freeport-McMoRan (copper)",SCCO:"Southern Copper",NEM:"Newmont (gold)",GOLD:"Barrick Gold",AA:"Alcoa (aluminium)",NUE:"Nucor (steel)",CAT:"Caterpillar",DE:"Deere",CF:"CF Industries",NTR:"Nutrien",MOS:"Mosaic",BA:"Boeing",GE:"GE Aerospace",LMT:"Lockheed Martin",RTX:"RTX (Raytheon)",HON:"Honeywell",UPS:"UPS",FDX:"FedEx",DAL:"Delta Air Lines",UAL:"United Airlines",AAL:"American Airlines",LUV:"Southwest Airlines",BKNG:"Booking.com",MAR:"Marriott",HLT:"Hilton",RCL:"Royal Caribbean",CCL:"Carnival",CARR:"Carrier",TT:"Trane Technologies",LII:"Lennox",HRB:"H&R Block",INTU:"Intuit (TurboTax)",PLNT:"Planet Fitness",DHI:"D.R. Horton",LEN:"Lennar",F:"Ford",GM:"General Motors",T:"AT&T",VZ:"Verizon",NEE:"NextEra Energy",DUK:"Duke Energy",QQQ:"Invesco QQQ: top 100 US tech fund",VOO:"Vanguard S&P 500 ETF: top 500 US companies",SPY:"SPDR S&P 500 ETF",VTI:"Vanguard Total Stock Market ETF",VT:"Vanguard Total World Stock ETF",VXUS:"Vanguard Total International Stock ETF",VUG:"Vanguard Growth ETF",VYM:"Vanguard High Dividend Yield ETF",SCHD:"Schwab US Dividend Equity ETF",BND:"Vanguard Total Bond Market ETF",IWM:"iShares Russell 2000: small US companies",DIA:"Dow Jones fund",SMH:"Chip stocks fund",XLE:"Energy fund",XLF:"Banks fund",XLU:"Utilities fund",XLV:"Healthcare fund",XRT:"Retail fund",ITB:"Homebuilders fund",VNQ:"Property fund",GLD:"Gold fund",SLV:"Silver fund",CPER:"Copper fund",COPX:"Copper miners fund",GDX:"Gold miners fund",USO:"Oil fund",UNG:"Natural gas fund",SGOV:"T-bill fund (safe)",BIL:"T-bill fund (safe)",TLT:"Long US bonds fund"};
 delete DIR.BRK_B; DIR["BRK-B"]="Berkshire Hathaway";
 const FED=["2026-10-28","2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-09","2027-07-28","2027-09-15","2027-10-27","2027-12-08"];
 const HOLIDAYS=[["2026-11-26","Thanksgiving"],["2026-12-25","Christmas"],["2027-01-01","New Year"],["2027-01-18","MLK Day"],["2027-02-15","Presidents' Day"],["2027-03-26","Good Friday"],["2027-05-31","Memorial Day"],["2027-06-18","Juneteenth"],["2027-07-05","Independence Day"],["2027-09-06","Labor Day"],["2027-11-25","Thanksgiving"],["2027-12-24","Christmas"]];
@@ -547,12 +564,35 @@ function detailsHtml(tk,d){const c=d.c,p=c[c.length-1],n=c.length,hi=Math.max(..
     <div><span>Trading activity</span><b>${vr?vr.toFixed(1)+"× normal":"–"}</b><small>${vr>1.5?"Unusually busy: big players are active.":vr&&vr<0.7?"Quiet day.":"About normal."}</small></div>
    </div></div>`}
 
+
+// ---------- Long term ----------
+const LTV={healthy:"Healthy: fine to hold",watch:"Watch closely",sell:"Consider selling",unknown:"Not enough company data"};
+const LTC={healthy:"buy",watch:"wait",sell:"avoid",unknown:"na"};
+const TERMS={short:"Short-term",mid:"Mid-term",long:"Long-term"};
+function ltOf(tk){return (M.longterm||{})[tk]||null}
+function ltCard(l,full){const pr=priceOf(l.tk);
+  return `<div class="card${l.verdict==="sell"?" redcard":""}" style="margin-top:10px">
+   <div class="srow"><div>${tkBtn(l.tk,nameOf(l.tk)!==l.tk?nameOf(l.tk):l.name)}</div>${priceBlock(l.tk)}</div>
+   <div style="margin-top:6px"><span class="vpill v-${LTC[l.verdict]}">${LTV[l.verdict]}</span>${l.fund?` <span class="muted">Fund: price checks only</span>`:""}</div>
+   ${l.flags.length?`<ul class="flaglist">${l.flags.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+   ${l.good.length?`<ul class="goodlist">${l.good.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+   ${l.target?`<p class="muted" style="margin-top:6px">Analysts' average 1-year target: <b>${money(l.target)}</b> (${pct(l.upside)} from now)${l.fpe?` · forward P/E ${l.fpe.toFixed(0)}`:""}</p>`:""}
+   ${full?`<div class="actions"><button class="b" data-open="${l.tk}">📈 Chart & details</button>${watchBtn(l.tk)}</div>`:""}</div>`}
+function taxLine(b){const d=new Date(b.date);const lt=new Date(d);lt.setMonth(lt.getMonth()+24);const left=Math.ceil((lt-TODAY)/86400000);
+  return left>0?{left,txt:`Long-term for Indian tax on ${lt.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})} (${left} days)`}:{left:0,txt:"Held 2+ years: long-term for Indian tax"}}
+function renderLT(){const mine=U.buys.filter(b=>!b.sold&&b.term==="long"),seen=new Set();
+  $("ltList").innerHTML=mine.length?mine.filter(b=>!seen.has(b.tk)&&seen.add(b.tk)).map(b=>{const l=ltOf(b.tk);return (l?ltCard(l,true):`<div class="card" style="margin-top:10px"><b>${b.tk}</b> ${esc(nameOf(b.tk))}<p class="muted">Checked at the next update.</p></div>`)+`<p class="muted" style="margin:4px 4px 0">🧾 ${taxLine(b).txt}</p>`}).join("")
+    :`<p class="empty">No long-term holdings yet. When adding a purchase in My buys, choose "Long-term (2+ years)".</p>`}
+function showLT(tk){const l=ltOf(tk);$("ltResult").innerHTML=l?ltCard(l,true):`<div class="card" style="margin-top:10px"><b>${tk}</b> ${esc(nameOf(tk))}<p class="muted">Not checked yet. Added to your watchlist; the check appears within about 10–20 minutes during US hours, or after the 6 pm update.</p></div>`;
+  if(!l&&!U.watch.includes(tk))addWatch(tk).then(load)}
+
 // ---------- Detail sheet ----------
 function glance(tk,c,mo){const an=analysisOf(tk),row=(k,v)=>`<div class="srow" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted" style="font-weight:800">${k}</span><span style="text-align:right">${v}</span></div>`;
   const cyc=c?`${esc(c.name)} <span class="st s-${c.status}" style="font-size:.72rem">${STLABEL[c.status]}</span>`:`<span class="muted">Not in a cycle now</span>`;
   const mom=mo?`<span class="st s-${mo.stage}" style="font-size:.72rem">${STLABEL[mo.stage]}</span>`:`<span class="muted">No momentum now</span>`;
   const sw=an?`<span class="vpill v-${an.verdict}" style="font-size:.74rem;padding:2px 9px">${VLABEL[an.verdict]||esc(an.label)}</span>${an.tf&&an.verdict!=="new"?`<br><span class="muted" style="font-size:.8rem">${an.win}% past odds · ${esc(an.tfLabel)}</span>`:""}${an.verdict==="buy"&&an.entry&&an.stop?(()=>{const L=levels(an.entry,an.stop,an.target);return `<br><span style="font-size:.82rem">Buy ${money(L.lo)}–${money(L.hi)} · Target <b style="color:var(--green)">${money(L.tgtP)}</b></span>`})():`<br><span style="font-size:.82rem;color:var(--amber);font-weight:800">Don't buy now</span>`}`:`<span class="muted">Not checked yet</span>`;
-  return `<div class="card"><h3>At a glance</h3>${row("Cycle",cyc)}${row("Momentum",mom)}${row("Swing",sw)}</div>`}
+  const l=ltOf(tk),ltv=l?`<span class="vpill v-${LTC[l.verdict]}" style="font-size:.74rem;padding:2px 9px">${LTV[l.verdict]}</span>`:`<span class="muted">Not checked yet</span>`;
+  return `<div class="card"><h3>At a glance</h3>${row("Cycle",cyc)}${row("Momentum",mom)}${row("Swing",sw)}${row("Long term",ltv)}</div>`}
 function openSheet(tk,cycId){
   const pr=priceOf(tk);let c=null,b=null;
   if(cycId){c=M.cycles.find(x=>x.id===cycId);b=c&&c.basket.find(x=>x.tk===tk)}
@@ -580,6 +620,7 @@ function openSheet(tk,cycId){
   if(an)h+=analysisCard(an,false);
   if(sw){h+=`<div class="card"><h3>Past similar dips · ${esc(sw.tfLabel)}</h3><p class="muted">${esc(sw.rule)}. Rose in <b>${sw.win}%</b> of ${sw.n} similar dips. Last ${sw.past.length} times (gain after ${sw.h===5?"5 days":sw.h===10?"2 weeks":"3 months"}):</p>
      ${barChart(sw.past,sw.past.map((_,i)=>"#"+(i+1)))}</div>`;}
+  h+=`<h3 style="margin-top:14px">4. Long term</h3>`+(ltOf(tk)?ltCard(ltOf(tk),false):`<div class="card"><p class="muted">Not checked yet: appears after the next update.</p></div>`);
   if(!an)h+=`<div class="card"><p class="muted">Not checked yet: the full swing check appears after the next update. Until then use the default rule: stop-loss −${pl.stop}%, target +${pl.target}%.</p></div>`;
   h+=`<div class="card"><h3>News: last 3 days</h3>${news.length?`<ul class="newsl">${news.map(n=>`<li><b>${fmtD(n.d)}</b> · ${esc(n.t)} <span class="muted">${esc(n.src)}</span></li>`).join("")}</ul>`:`<p class="muted">No news in the last 3 days.</p>`}</div>
    <div class="actions">${watchBtn(tk)}</div>
@@ -604,7 +645,7 @@ function attachSuggest(inputId,boxId,onPick){
   const inp=$(inputId),box=$(boxId);
   const render=()=>{const v=inp.value.trim();if(!v){box.classList.add("hidden");return}
     const up=v.toUpperCase(),nv=norm(v),u=universe();
-    const score=(t,n)=>{const nn=norm(n);return t===up?0:t.startsWith(up)?1:nn.startsWith(nv)?2:nn.includes(nv)?3:t.includes(up)?4:9};
+    const score=(t,n)=>{const nn=norm(n)+" "+norm((SYMS&&SYMS[t])||"");return t===up?0:t.startsWith(up)?1:nn.startsWith(nv)?2:nn.includes(nv)?3:t.includes(up)?4:9};
     const scored=[];for(const t in u){const sc=score(t,u[t]);if(sc<9)scored.push([t,u[t],sc+(DIR[t]?0:0.5)])}
     scored.sort((a,b)=>a[2]-b[2]||a[0].length-b[0].length||a[0].localeCompare(b[0]));
     const top=scored.slice(0,8),typed=up.replace(/[^A-Z.\-]/g,"").replace(".","-");
@@ -628,7 +669,9 @@ function renderWatch(){
     <div class="actions"><button class="b" data-open="${t}">📈 Chart & details</button><button class="b g" data-w="${t}">Remove</button><button class="b g" data-px="${t}">Type today's price</button></div></div>`}).join(""):`<p class="empty">Nothing yet. Search above.</p>`}
 
 // ---------- Buys ----------
-function verdict(b){const pr=priceOf(b.tk),pl=planFor(b.tk),mc=mainCycle(b.tk),mo=momOf(b.tk),why=[];let v="hold",g=null;
+function verdict(b){if(b.term==="long")return verdictLong(b);
+  const mid=b.term==="mid",base=planFor(b.tk),pl=mid?{stop:Math.max(10,base.stop),target:Math.max(15,base.target)}:base;
+  const pr=priceOf(b.tk),mc=mainCycle(b.tk),mo=momOf(b.tk),why=[];let v="hold",g=null;
   const up=x=>{const r={none:-1,hold:0,watch:1,sell:2};if(r[x]>r[v])v=x};
   if(pr){g=(pr.p-b.price)/b.price*100;
     if(g>=pl.target){up("sell");why.push(`Up ${g.toFixed(1)}%: target (+${pl.target}%) reached. Sell and take the profit.`)}
@@ -641,14 +684,25 @@ function verdict(b){const pr=priceOf(b.tk),pl=planFor(b.tk),mc=mainCycle(b.tk),m
   if(mo){if(mo.stage==="cooling"){up("sell");why.push("Its momentum has stopped. Sell on any bounce.")}
     else if(mo.stage==="late"){up("watch");why.push("Momentum is late-stage. Keep the stop-loss tight.")}}
   const an=analysisOf(b.tk);
-  if(an&&an.tf&&an.h&&!mc){const days=Math.round((TODAY-new Date(b.date))/86400000),win=Math.round(an.h*1.45);
+  if(an&&an.tf&&an.h&&!mc&&!mid){const days=Math.round((TODAY-new Date(b.date))/86400000),win=Math.round(an.h*1.45);
     if(days>win){up("watch");why.push(`Swing window (${an.h===5?"about a week":an.h===10?"about 2 weeks":"about 3 months"}) has passed: the typical bounce should have come by now. Consider selling if it isn't working.`)}
     else why.push(`Swing setup (${an.tfLabel}): ${win-days} days left in its usual window.`)}
   if(an&&!mc&&!mo&&["buy","weak","nodip"].includes(an.verdict))why.push(`Swing check now: ${VLABEL[an.verdict]}.`);
-  if(an&&an.verdict==="avoid"){up("sell");why.push("It broke down ("+an.flags[0].toLowerCase()+"). Sell rather than wait for a recovery.")}
+  if(an&&an.verdict==="avoid"){up(mid?"watch":"sell");why.push("It broke down ("+an.flags[0].toLowerCase()+"). Sell rather than wait for a recovery.")}
   else if(an&&an.verdict==="wait"&&an.flags.some(f=>f.startsWith("Broke below"))){up("watch");why.push(an.flags.find(f=>f.startsWith("Broke below"))+". Watch closely; consider selling if it doesn't recover in a few days.")}
+  const tx=taxLine(b);if(v==="sell"&&g>0&&tx.left>0&&tx.left<=60)why.push(`🧾 ${tx.txt}. Selling after that date may mean lower tax; weigh it with your CA.`);
   const nn=newsOf(b.tk).length;if(nn)why.push(`${nn} news item${nn>1?"s":""} in the last 3 days: tap the name to read.`);
   return{v,why,g,pr,pl}}
+function verdictLong(b){const pr=priceOf(b.tk),l=ltOf(b.tk),why=[];let v="hold",g=null;
+  if(pr){g=(pr.p-b.price)/b.price*100;if(g<=-30){v="watch";why.push(`Down ${Math.abs(g).toFixed(0)}% from your price. Big falls happen to good companies too; check that the business is still healthy.`)}}
+  else{v="none";why.push('No price yet. Tap "Type today\'s price".')}
+  if(l){if(l.verdict==="sell"){v="sell";why.push(`Business weakening: ${l.flags.slice(0,2).join("; ").toLowerCase()}.`)}
+    else if(l.verdict==="watch"){if(v!=="sell")v="watch";why.push(`Watch: ${l.flags.join("; ").toLowerCase()}.`)}
+    else if(l.verdict==="healthy")why.push("Business looks healthy. Normal price dips are not a reason to sell.");
+    else why.push("Not enough company data for a long-term check.")}
+  else why.push("Long-term check appears after the next update.");
+  why.push(`🧾 ${taxLine(b).txt}.`);
+  const pl={stop:30,target:999};return{v,why,g,pr,pl}}
 function renderBuys(){
   const open=U.buys.filter(b=>!b.sold),sold=U.buys.filter(b=>b.sold),vs=open.map(b=>({b,r:verdict(b)})),sells=vs.filter(x=>x.r.v==="sell");
   $("sellBadge").textContent=sells.length;$("sellBadge").classList.toggle("hidden",!sells.length);
@@ -659,15 +713,15 @@ function renderBuys(){
   const L={sell:"SELL NOW",watch:"Watch closely",hold:"Hold",none:"Needs a price"};
   $("holding").innerHTML=vs.length?vs.map(({b,r})=>`<div class="card buy b-${r.v}">
     <div class="srow"><div>${tkBtn(b.tk,nameOf(b.tk))}</div><span class="verdict">${L[r.v]}</span></div>
-    <p class="muted">Bought ${fmtD(b.date)} at ${money(b.price)} · ${money(b.amt)}</p>
+    <p class="muted">Bought ${fmtD(b.date)} at ${money(b.price)} · ${money(b.amt)} · <select data-term="${b.id}" aria-label="Holding type" style="font:inherit;font-size:.8rem;font-weight:800;border:1px solid var(--line);border-radius:999px;padding:1px 6px;background:var(--soft);color:var(--ink)">${Object.entries(TERMS).map(([k,n])=>`<option value="${k}"${b.term===k?" selected":""}>${n}</option>`).join("")}</select></p>
     ${r.pr?`<p>Now ${money(r.pr.p)} <span class="muted">(${r.pr.src})</span>: <span class="${r.g>=0?"pos":"neg"}">${pct(r.g)} (${money(b.amt*r.g/100)})</span></p>`:""}
-    ${posBar(b.tk,[b.price,b.price],r.pl.stop,r.pl.target)}
-    <div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target +${r.pl.target}%<b>${money(b.price*(1+r.pl.target/100))}</b></div><div class="s">Stop −${r.pl.stop}%<b>${money(b.price*(1-r.pl.stop/100))}</b></div></div>
+    ${b.term==="long"?"":posBar(b.tk,[b.price,b.price],r.pl.stop,r.pl.target)}
+${b.term==="long"?"":`<div class="plan"><div>Bought<b>${money(b.price)}</b></div><div class="t">Target +${r.pl.target}%<b>${money(b.price*(1+r.pl.target/100))}</b></div><div class="s">Stop −${r.pl.stop}%<b>${money(b.price*(1-r.pl.stop/100))}</b></div></div>`}
     <ul style="margin:8px 0 0;padding-left:18px;font-size:.9rem">${r.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
     <div class="actions"><button class="b" data-open="${b.tk}">📈 Chart</button><button class="b g" data-px="${b.tk}">Type today's price</button><button class="b g" data-sell="${b.id}">I sold it</button><button class="b g" data-del="${b.id}">Delete</button></div></div>`).join(""):`<p class="empty">No purchases yet.</p>`;
   $("soldList").innerHTML=sold.length?`<div class="card"><ul class="res">${sold.slice().reverse().map(b=>`<li><span><b>${b.tk}</b> ${money(b.price)} → ${money(b.sellPrice)}</span><span class="${b.pnl>=0?"pos":"neg"}">${money(b.pnl)}</span></li>`).join("")}</ul></div>`:`<p class="empty">Nothing sold yet.</p>`}
 
-function renderAll(){renderStatus();$("asof").textContent=M.asOf?`Analysis: ${M.asOfLabel}`:M.asOfLabel;renderCycles();renderMomentum();renderSwing();renderWait();refreshCheck();renderWatch();renderBuys()}
+function renderAll(){renderStatus();$("asof").textContent=M.asOf?`Analysis: ${M.asOfLabel}`:M.asOfLabel;renderCycles();renderMomentum();renderSwing();renderWait();refreshCheck();renderLT();renderWatch();renderBuys()}
 
 // ---------- data ----------
 async function load(){
@@ -681,11 +735,11 @@ async function load(){
       q(sbc.from("manual").select("tk,price,day"))]);
     let snap=(kv.find(r=>r.k==="snapshot")||{}).v, pa=(kv.find(r=>r.k==="pricesAt")||{}).v, note="No data yet: run the update once on GitHub (Actions → Run workflow).";
     if(snap&&!snap.years){snap=null;note="Old data format: run the update once on GitHub (Actions → Run workflow), then reload.";}
-    M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],swing:[],swingWait:[],analysis:{},season:{}},snap||{});
+    M=Object.assign({asOf:"",asOfLabel:note,cycles:[],momentum:[],metals:[],swing:[],swingWait:[],analysis:{},longterm:{},season:{}},snap||{});M.longterm=M.longterm||{};
     M.pricesAt=pa&&pa.at; M.pricesIso=pa&&pa.iso; M.changes=(kv.find(r=>r.k==="changes")||{}).v||{}; M.swing=M.swing||[]; M.prices=Object.fromEntries(pr.map(r=>[r.tk,{p:+r.price,d:r.day}]));
     M.newsBy={}; nw.forEach(n=>(M.newsBy[n.tk]=M.newsBy[n.tk]||[]).push({d:n.day,t:n.title,src:n.source}));
     U={watch:wl.map(r=>r.tk),
-       buys:by.map(r=>({id:r.id,tk:r.tk,price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
+       buys:by.map(r=>({id:r.id,tk:r.tk,term:r.term||"short",price:+r.price,amt:+r.amt,date:r.day,sold:r.sold,sellPrice:r.sell_price==null?null:+r.sell_price,pnl:r.sold&&r.sell_price!=null?(+r.amt)*(r.sell_price-r.price)/r.price:null})),
        manual:Object.fromEntries(mn.map(r=>[r.tk,{p:+r.price,d:r.day}]))};
   }catch(e){$("asof").textContent="Couldn't load data: "+(e&&(e.message||e.code)||"check the internet connection");console.error(e);return}
   try{renderAll()}catch(e){$("asof").textContent="Display error: "+e.message+". Run the update on GitHub, then reload.";console.error(e)}
@@ -697,8 +751,9 @@ $("saveNote").textContent="Saved online: the same data on laptop and phone.";
 $("bDt").value=todayIso();
 document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  ["cyc","mom","swing","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
+  ["cyc","mom","swing","lt","watch","buys"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));window.scrollTo(0,0)});
 attachSuggest("q","qSug",async t=>{$("q").value="";if(!U.watch.includes(t))await addWatch(t);load()});
+attachSuggest("ltQ","ltSug",t=>{$("ltQ").value=t;showLT(t)});
 attachSuggest("swQ","swSug",t=>{$("swQ").value=t;showCheck(t)});
 attachSuggest("bTk","bSug",t=>{$("bTk").value=t;$("bName").textContent=nameOf(t);const p=priceOf(t);if(p&&!$("bPx").value)$("bPx").value=p.p});
 document.addEventListener("click",async e=>{
@@ -711,7 +766,9 @@ document.addEventListener("click",async e=>{
 });
 $("bAdd").onclick=async()=>{const tk=$("bTk").value.trim().toUpperCase().replace(/[^A-Z.\-]/g,""),price=parseFloat($("bPx").value),amt=parseFloat($("bAmt").value),date=$("bDt").value;
   if(!tk||!(price>0)||!(amt>0)||!date){$("bMsg").textContent="Fill in stock, buy price, amount and date.";return}
-  await q(sbc.from("buys").insert({tk,price,amt,day:date}));await addWatch(tk);$("bTk").value="";$("bPx").value="";$("bName").textContent="";$("bMsg").textContent=tk+" added.";load()};
+  const term=$("bTerm").value;
+  try{await q(sbc.from("buys").insert({tk,price,amt,day:date,term}))}
+  catch(e){await q(sbc.from("buys").insert({tk,price,amt,day:date}));if(term!=="short")alert("Saved as short-term. To save holding types, run the one-line SQL from the update notes once in Supabase.")}await addWatch(tk);$("bTk").value="";$("bPx").value="";$("bName").textContent="";$("bMsg").textContent=tk+" added.";load()};
 async function gate(){
   const {data:{session}}=await sbc.auth.getSession();
   $("login").classList.toggle("hidden",!!session);$("app").classList.toggle("hidden",!session);
@@ -723,6 +780,8 @@ $("lGo").onclick=async()=>{$("lMsg").textContent="Signing in...";
 $("lPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("lGo").click()});
 $("logout").onclick=async()=>{await sbc.auth.signOut();gate()};
 
+document.addEventListener("change",async e=>{const s=e.target.closest("[data-term]");if(!s)return;
+  try{await q(sbc.from("buys").update({term:s.value}).eq("id",s.dataset.term));load()}catch(err){alert("To save holding types, run the one-line SQL from the update notes once in Supabase.");load()}});
 document.addEventListener("click",e=>{const t=e.target;
   const cf=t.closest("[data-cf]"),cs=t.closest("[data-cs]"),mf=t.closest("[data-mf]"),ms=t.closest("[data-ms]"),xp=t.closest("[data-xp]");
   if(cf){cycFilter=cf.dataset.cf;renderCycles()} if(cs){cycSort=cs.dataset.cs;renderCycles()}
