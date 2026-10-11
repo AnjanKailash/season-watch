@@ -215,6 +215,7 @@ html,body{overscroll-behavior-y:contain}
   <div class="sugwrap" style="margin-top:8px"><input id="swQ" placeholder="e.g. Nike or NKE" autocomplete="off"><div class="sug hidden" id="swSug"></div></div>
   <div id="swResult"></div></div>
  <h2>Today's best dips</h2>
+ <p class="muted">Sorted by best profit per day: more profit in less time first.</p>
  <div class="filters" id="tfChips"></div>
  <div class="filters" id="catChips"></div>
  <div id="swingList"></div>
@@ -455,14 +456,14 @@ function renderSwing(){
   const cats=["all",...new Set(all.map(x=>x.cat))];
   $("tfChips").innerHTML=tfs.map(([k,l])=>`<button class="fchip" data-swtf="${k}" aria-pressed="${swTf===k}">${l}</button>`).join("");
   $("catChips").innerHTML=cats.map(c=>`<button class="fchip" data-swcat="${c}" aria-pressed="${swCat===c}">${c==="all"?"All sectors":c}</button>`).join("");
-  const list=all.filter(x=>(swTf==="all"||x.tf===swTf)&&(swCat==="all"||x.cat===swCat)).sort((a,b)=>b.score-a.score);
+  const list=all.filter(x=>(swTf==="all"||x.tf===swTf)&&(swCat==="all"||x.cat===swCat)).sort((a,b)=>(b.ppd??b.score/b.h)-(a.ppd??a.score/a.h));
   $("swingList").innerHTML=list.length?boxCaution("These are past odds, not promises. A dip can keep falling, so the stop-loss matters most here.")+list.map((x,i)=>{const pr=priceOf(x.tk);
    return `<div class="card cycle s-${x.bounce?"early":"mid"}">
     <div class="srow"><h3>${rankB(i<3?i+1:0)}${tkBtn(x.tk,x.name)}</h3><div class="price">${pr?money(pr.p):""}${chgChip(x.tk)}</div></div>
     <div style="margin-top:4px"><span class="tfpill">${esc(x.tfLabel)}</span> <span class="chip">${esc(x.cat)}</span>${x.bounce?`<span class="chip on">Bounce started</span>`:""}${liveTag(x.tk,x.entry,x.stop,x.target)}${newsChip(x.tk)}${sparkSvg(x.tk)}</div>
     <p class="muted" style="margin-top:8px">${esc(x.rule)}. Now ${x.offHigh.toFixed(0)}% below its 1-year high, moves about ${x.vol.toFixed(1)}% a day.</p>
     <div class="srow" style="margin-top:6px;align-items:center"><div><span class="odds">${x.win}%</span> <span class="muted">rose within ${x.h===5?"5 days":x.h===10?"2 weeks":"3 months"} in ${Math.round(x.win*x.n/100)} of ${x.n} similar dips</span></div></div>
-    <p class="muted">Typical gain ${pct(x.med)} · good cases ${pct(x.p75)}</p>
+    <p class="muted">Typical gain ${pct(x.med)} · good cases ${pct(x.p75)} · <b>keep ~${x.h} trading days</b></p>
     ${posBar(x.tk,x.entry,x.stop,x.target)}
     ${planBox(x.entry,x.stop,x.target)}
     <div class="actions"><button class="b" data-open="${x.tk}">📈 Chart & details</button>${watchBtn(x.tk)}</div></div>`}).join(""):`<p class="empty">No strong dip setups${swTf!=="all"||swCat!=="all"?" for this filter":" today"}. That's normal: good setups don't appear every day.</p>`;
