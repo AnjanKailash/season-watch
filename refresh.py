@@ -456,7 +456,8 @@ def analyze(tk, name, cat, dates, vals, lows, vols, st):
             best = {"tf": tf, "tfLabel": cfg["label"], "h": h, "rule": cfg["rule"],
                     "bounce": bool(bounce or vals[last] > vals[last - 1]), "n": len(outs), "win": int(win),
                     "med": float(med), "p75": float(p75), "past": [float(o) for o in outs[-12:]],
-                    "score": float(score), "stop": stop, "target": int(max(round(p75), round(stop * 1.5), 3)),
+                    "score": float(score), "ppd": float(round(score / h, 3)), "stop": stop,
+                    "target": int(max(round(p75), round(stop * 1.5), 3)),
                     "volOk": st["dailyMove"] >= cfg["min_vol"]}
 
     serious = len(flags)
@@ -498,7 +499,7 @@ def swing_lists(analysis):
     swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
     picks, wait = [], []
     for tk, a in analysis.items():
-        if tk not in swing_tks:
+        if tk not in swing_tks and a.get("cat") != "Market scan":
             continue
         if a["verdict"] == "buy" and a.get("volOk"):
             picks.append(a)
@@ -506,7 +507,7 @@ def swing_lists(analysis):
             wait.append(a)
     out = []
     for tf in SWING_SETUPS:
-        out += sorted([x for x in picks if x["tf"] == tf], key=lambda x: x["score"], reverse=True)[:SWING_PER_TF]
+        out += sorted([x for x in picks if x["tf"] == tf], key=lambda x: x.get("ppd", 0), reverse=True)[:SWING_PER_TF]
     wait.sort(key=lambda x: x["offHigh"], reverse=True)
     return out, wait[:12]
 
@@ -520,8 +521,7 @@ def run_prices():
     tks |= {r["tk"] for r in sb("GET", "buys?select=tk&sold=eq.false") or []}
     print(f"Latest prices for {len(tks)} tickers")
     rows, chg = [], {}
-    for tk in sorted(tks):
-        h = history(tk, "5d")
+    for tk, h in bulk_history(sorted(tks), "5d").items():
         if h is not None:
             c = h["Close"].dropna()
             rows.append({"tk": tk, "price": round(float(c.iloc[-1]), 2), "day": h.index[-1].date().isoformat()})
@@ -532,6 +532,10 @@ def run_prices():
                                            "iso": dt.datetime.now(dt.timezone.utc).isoformat()}},
                   {"k": "changes", "v": chg}], "k")
     analyse_new_watch()
+    try:
+        live_alerts({r["tk"]: r["price"] for r in rows})
+    except Exception as exc:
+        print(f"  alerts skipped: {exc}")
 
 
 def chart_payload(h, days=252):
@@ -677,6 +681,98 @@ def longterm_all(data, names):
     return out
 
 
+# ----------------------------------------------------------------------------
+# Market-wide scan: ~1,500 most-traded US stocks/ETFs, two-stage filter
+# ----------------------------------------------------------------------------
+UNIVERSE_SIZE = int(os.environ.get("SCAN_SIZE") or 1500)
+SCAN_MAX_CANDIDATES = int(os.environ.get("SCAN_CANDIDATES") or 250)
+
+
+def bulk_history(tickers, period, chunk=150):
+    """Download many tickers at once; returns {ticker: DataFrame with Close/High/Low/Volume}."""
+    import yfinance as yf
+    out, tickers = {}, list(tickers)
+    for i in range(0, len(tickers), chunk):
+        part = tickers[i:i + chunk]
+        try:
+            df = yf.download(part, period=period, interval="1d", group_by="ticker", auto_adjust=True,
+                             threads=True, progress=False)
+        except Exception as exc:
+            print(f"  bulk download failed for a batch: {exc}")
+            time.sleep(5)
+            continue
+        for tk in part:
+            try:
+                sub = df[tk] if len(part) > 1 else df
+                sub = sub.dropna(subset=["Close"])
+                if len(sub) > 5:
+                    out[tk] = sub
+            except Exception:
+                pass
+        time.sleep(2)  # be gentle with Yahoo
+    return out
+
+
+def build_universe(symbols):
+    """Weekly: rank every listed symbol by average dollars traded per day; keep the top UNIVERSE_SIZE."""
+    cands = [tk for tk in symbols if tk.replace("-", "").isalpha() and len(tk) <= 5]
+    print(f"Ranking {len(cands)} symbols by trading volume (weekly)...")
+    hist = bulk_history(cands, "1mo", chunk=200)
+    ranked = []
+    for tk, h in hist.items():
+        try:
+            px = float(h["Close"].iloc[-1])
+            dv = float((h["Close"] * h["Volume"]).tail(20).mean())
+            if px >= 10 and dv >= 20e6:
+                ranked.append((dv, tk))
+        except Exception:
+            pass
+    ranked.sort(reverse=True)
+    return [tk for _, tk in ranked[:UNIVERSE_SIZE]]
+
+
+def get_universe(symbols):
+    rows = sb("GET", "kv?k=eq.universe&select=v") or []
+    u = rows[0]["v"] if rows else {}
+    age = (TODAY - dt.date.fromisoformat(u["built"])).days if u.get("built") else 999
+    if age >= 7 and symbols:
+        try:
+            tks = build_universe(symbols)
+            if len(tks) > 200:
+                u = {"built": TODAY.isoformat(), "tickers": tks}
+                upsert("kv", [{"k": "universe", "v": u}], "k")
+        except Exception as exc:
+            print(f"  universe rebuild failed: {exc}")
+    return u.get("tickers", [])
+
+
+def quick_screen(universe, skip):
+    """Stage 1: cheap checks on 1 year of prices. Keeps liquid, volatile uptrending stocks that are dipping now."""
+    todo = [tk for tk in universe if tk not in skip]
+    print(f"Stage 1 screen of {len(todo)} stocks...")
+    hist = bulk_history(todo, "1y")
+    keep = []
+    for tk, h in hist.items():
+        try:
+            c = [float(x) for x in h["Close"].values]
+            if len(c) < 210:
+                continue
+            p, s200 = c[-1], sum(c[-200:]) / 200
+            moves = [abs(c[i] / c[i - 1] - 1) * 100 for i in range(len(c) - 20, len(c))]
+            dmove = sum(moves) / len(moves)
+            hi3 = max(c[-63:])
+            dd = (hi3 - p) / hi3 * 100
+            d = [c[i] - c[i - 1] for i in range(len(c) - 2, len(c))]
+            very_oversold = d[0] < 0 and d[1] < 0 and p < min(c[-6:-2])
+            if p >= 10 and dmove >= 1.3 and p > s200 * 0.97 and (5 <= dd <= 20 or very_oversold):
+                keep.append((dmove, tk))
+        except Exception:
+            pass
+    keep.sort(reverse=True)
+    print(f"  {len(keep)} passed; analysing the top {min(len(keep), SCAN_MAX_CANDIDATES)}")
+    return [tk for _, tk in keep[:SCAN_MAX_CANDIDATES]]
+
+
 def fetch_symbols():
     """All US-listed stocks/ETFs (code + name) for the app's search box."""
     out = {}
@@ -743,6 +839,13 @@ def run_full():
     held = [r["tk"] for r in sb("GET", "buys?select=tk&sold=eq.false") or []]
     swing_tks = {tk for g in SWING_UNIVERSE.values() for tk in g}
     tickers = {tk for c in CYCLES for tk, _ in c["basket"]} | set(MOMENTUM_CANDIDATES) | swing_tks | set(watch) | set(held) | {"SPY"}
+    symbols = fetch_symbols()
+    scanned = []
+    try:
+        scanned = quick_screen(get_universe(symbols), tickers)
+    except Exception as exc:
+        print(f"  market scan skipped: {exc}")
+    tickers |= set(scanned)
     print(f"10-year history for {len(tickers)} tickers")
     data, stats, season, charts = {}, {}, {}, {}
     for tk in sorted(tickers):
@@ -755,8 +858,6 @@ def run_full():
         data[tk] = (dates, vals, lows, vols)
         stats[tk] = basic_stats(dates, vals)
         season[tk] = monthly_pattern(h)
-    upsert("prices", [{"tk": tk, "price": s["price"], "day": s["day"], "stats": s} for tk, s in stats.items()], "tk")
-
     earnings = {}
 
     def results_text(tk):
@@ -854,10 +955,13 @@ def run_full():
         for tk, n in g.items():
             who[tk] = (n, cat)
     for tk in watch + held:
-        who.setdefault(tk, (tk, "Watchlist"))
+        who.setdefault(tk, (symbols.get(tk, tk), "Watchlist"))
+    core = dict(who)
+    for tk in scanned:
+        who.setdefault(tk, (symbols.get(tk, tk), "Market scan"))
     analysis = analyze_all(data, stats, who)
     print("Long-term checks...")
-    longterm = longterm_all(data, {tk: v[0] for tk, v in who.items()})
+    longterm = longterm_all(data, {tk: v[0] for tk, v in core.items()})
     swing, swing_wait = swing_lists(analysis)
     names.update({x["tk"]: x["name"] for x in swing})
     for tk in watch + held:
@@ -879,12 +983,23 @@ def run_full():
     last_day = max((s["day"] for s in stats.values()), default=TODAY.isoformat())
     snapshot = {"asOf": last_day, "asOfLabel": f"{last_day} close (analysis updated {now_ist():%d %b %H:%M} IST)",
                 "cycles": cycles, "momentum": momentum, "metals": metals, "swing": swing,
-                "swingWait": swing_wait, "analysis": analysis, "longterm": longterm,
+                "swingWait": swing_wait,
+                "analysis": {tk: a for tk, a in analysis.items() if tk not in scanned or tk in {x["tk"] for x in swing + swing_wait}},
+                "longterm": longterm, "scanned": len(scanned),
                 "season": season, "years": YEARS}
     chg = {tk: round((data[tk][1][-1] / data[tk][1][-2] - 1) * 100, 2) for tk in data if len(data[tk][1]) > 1}
     snapshot["spark"] = {tk: {"d": data[tk][0][-1].isoformat(), "v": [round(x, 2) for x in data[tk][1][-30:]]} for tk in data}
-    save_charts(charts)
-    symbols = fetch_symbols()
+    shown = {x["tk"] for x in swing} | {x["tk"] for x in swing_wait}
+    keep_px = {tk: st for tk, st in stats.items() if tk not in scanned or tk in shown}
+    upsert("prices", [{"tk": tk, "price": st["price"], "day": st["day"], "stats": st} for tk, st in keep_px.items()], "tk")
+    try:  # stop tracking scan stocks that are no longer shown
+        old = {r["tk"] for r in sb("GET", "prices?select=tk") or []}
+        stale = sorted(old - set(keep_px) - set(watch) - set(held))
+        for i in range(0, len(stale), 80):
+            sb("DELETE", "prices?tk=in.(" + ",".join(urllib.parse.quote(t) for t in stale[i:i + 80]) + ")")
+    except Exception as exc:
+        print(f"  price cleanup skipped: {exc}")
+    save_charts({tk: v for tk, v in charts.items() if tk not in scanned or tk in shown})
     if len(symbols) > 1000:
         try:
             upsert("kv", [{"k": "symbols", "v": symbols}], "k")
@@ -893,7 +1008,203 @@ def run_full():
     upsert("kv", [{"k": "snapshot", "v": snapshot}, {"k": "changes", "v": chg},
                   {"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
                                          "iso": dt.datetime.now(dt.timezone.utc).isoformat()}}], "k")
+    try:
+        daily_summary(snapshot)
+    except Exception as exc:
+        print(f"  daily summary skipped: {exc}")
 
+
+# ----------------------------------------------------------------------------
+# WhatsApp alerts (CallMeBot, free for personal use)
+# Secrets: CALLMEBOT_PHONE (e.g. +919876543210) and CALLMEBOT_APIKEY.
+# ----------------------------------------------------------------------------
+WA_PHONE = os.environ.get("CALLMEBOT_PHONE", "").strip()
+WA_KEY = os.environ.get("CALLMEBOT_APIKEY", "").strip()
+QUIET = (os.environ.get("QUIET_HOURS") or "23:30-07:00").strip()
+ALERT_MODE = (os.environ.get("ALERT_MODE") or "all").strip().lower()      # "all" or "list_only"
+MAX_DAILY = int(os.environ.get("MAX_DAILY_MESSAGES") or 3)               # list + buy-zone messages per day
+ZONE_TOP_N = int(os.environ.get("BUYZONE_TOP_N") or 3)                   # buy-zone alerts only for the top N picks  # IST; buy-zone alerts paused, sell alerts still sent
+DISCLAIMER = ("⚠️ Automated alert from past price patterns, not financial advice. "
+              "Prices about 15 min delayed. Check the news and decide yourself.")
+SHORT_TFS = ("days", "weeks")  # setups expected to play out within 1–2 weeks
+
+
+def send_whatsapp(text):
+    if not (WA_PHONE and WA_KEY):
+        print("  WhatsApp not set up (no CALLMEBOT secrets); message skipped:\n" + text)
+        return False
+    url = ("https://api.callmebot.com/whatsapp.php?phone=" + urllib.parse.quote(WA_PHONE)
+           + "&text=" + urllib.parse.quote(text[:1500]) + "&apikey=" + urllib.parse.quote(WA_KEY))
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        body = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
+        ok = "ERROR" not in body.upper()
+        print("  WhatsApp sent" if ok else f"  WhatsApp error: {body[:200]}")
+        return ok
+    except Exception as exc:
+        print(f"  WhatsApp failed: {exc}")
+        return False
+
+
+def in_quiet_hours():
+    try:
+        a, b = QUIET.split("-")
+        to_min = lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1] if ":" in x else 0)
+        n = now_ist()
+        cur, start, end = n.hour * 60 + n.minute, to_min(a), to_min(b)
+        return (start <= cur or cur < end) if start > end else (start <= cur < end)
+    except Exception:
+        return False
+
+
+def _sent_state():
+    rows = sb("GET", "kv?k=eq.alertsSent&select=v") or []
+    st = rows[0]["v"] if rows else {}
+    cut = (TODAY - dt.timedelta(days=21)).isoformat()
+    return {k: v for k, v in st.items() if v >= cut}
+
+
+def _msgs_today(sent):
+    return sum(1 for k in sent if k.startswith(f"msg:{TODAY.isoformat()}:"))
+
+
+def _count_msg(sent):
+    sent[f"msg:{TODAY.isoformat()}:{_msgs_today(sent) + 1}"] = TODAY.isoformat()
+
+
+def _plan_levels(snap, tk):
+    for c in snap.get("cycles", []):
+        for b in c.get("basket", []):
+            if b["tk"] == tk and b.get("stop"):
+                return b["stop"], b["target"]
+    for m in snap.get("momentum", []):
+        if m["tk"] == tk:
+            return m["stop"], m["target"]
+    a = (snap.get("analysis") or {}).get(tk) or {}
+    if a.get("stop"):
+        return a["stop"], a["target"]
+    return 5, 6
+
+
+def _open_buys():
+    try:
+        return sb("GET", "buys?select=id,tk,price,day,term&sold=eq.false") or []
+    except Exception:
+        return [dict(r, term="short") for r in (sb("GET", "buys?select=id,tk,price,day&sold=eq.false") or [])]
+
+
+def _money(x):
+    return f"${x:,.2f}"
+
+
+def live_alerts(prices):
+    """Every price run: swing picks entering their buy zone, holdings hitting target/stop."""
+    snap_rows = sb("GET", "kv?k=eq.snapshot&select=v") or []
+    if not snap_rows:
+        return
+    snap, sent, today = snap_rows[0]["v"], _sent_state(), TODAY.isoformat()
+    before = dict(sent)
+    lines = []
+    # 1) Her holdings: target / stop-loss (short & mid term; long term handled in the daily summary)
+    for b in _open_buys():
+        p = prices.get(b["tk"])
+        if not p or b.get("term") == "long":
+            continue
+        stop, target = _plan_levels(snap, b["tk"])
+        if b.get("term") == "mid":
+            stop, target = max(10, stop), max(15, target)
+        g = (p / float(b["price"]) - 1) * 100
+        for kind, hit, msg in (
+                ("tgt", g >= target, f"🎯 SELL {b['tk']}: target reached. Now {_money(p)}, up {g:.1f}% from your {_money(float(b['price']))}. Consider taking the profit."),
+                ("stop", g <= -stop, f"🛑 SELL {b['tk']}: stop-loss hit. Now {_money(p)}, down {abs(g):.1f}% from your {_money(float(b['price']))}. Selling limits the loss.")):
+            key = f"hold:{b['id']}:{kind}"
+            if hit and key not in sent:
+                lines.append(msg)
+                sent[key] = today
+    hold_lines = list(lines)
+    # 2) top 1–2 week swing picks entering the buy zone (limited to avoid spam)
+    top = sorted([x for x in snap.get("swing", []) if x.get("tf") in SHORT_TFS and x.get("entry")],
+                 key=lambda x: x.get("ppd", 0), reverse=True)[:ZONE_TOP_N]
+    zone_ok = ALERT_MODE != "list_only" and not in_quiet_hours() and _msgs_today(sent) < MAX_DAILY
+    if zone_ok:
+        for x in top:
+            p = prices.get(x["tk"])
+            lo, hi = x["entry"]
+            mid = (lo + hi) / 2
+            stop_p, tgt_p = mid * (1 - x["stop"] / 100), mid * (1 + x["target"] / 100)
+            key = f"zone:{x['tk']}:{today}"
+            listed_in_range = f"listed:{x['tk']}:{today}" in sent and f"above:{x['tk']}:{today}" not in sent
+            if p and p > hi * 1.005:
+                sent[f"above:{x['tk']}:{today}"] = today  # opened above range; a later dip deserves one alert
+            if p and lo * 0.995 <= p <= hi * 1.005 and p > stop_p and key not in sent and not listed_in_range:
+                lines.append(f"🟢 *BUY ZONE {x['tk']}* ({x['name']}) now {_money(p)}\n"
+                             f"   Buy {_money(lo)}–{_money(hi)} · Sell at {_money(tgt_p)} (+{x['target']}%) · "
+                             f"Stop {_money(stop_p)} (−{x['stop']}%)\n"
+                             f"   Keep ~{x['h']} trading days (sell by {trading_days_ahead(x['h']):%d %b}) · "
+                             f"rose in {x['win']}% of {x['n']} similar dips.")
+                sent[key] = today
+    if lines and not hold_lines and _msgs_today(sent) >= MAX_DAILY:
+        lines = []
+    changed = sent != before
+    if lines:
+        if lines != hold_lines:
+            _count_msg(sent)
+        text = "📈 Season Watch alert\n\n" + "\n\n".join(lines) + "\n\n" + DISCLAIMER
+        if not send_whatsapp(text):  # failed: forget these so they are retried next run
+            sent = {k: v for k, v in sent.items() if not (k.startswith(("zone:", "hold:", "msg:")) and k not in before)}
+    if changed:
+        upsert("kv", [{"k": "alertsSent", "v": sent}], "k")
+
+
+def trading_days_ahead(n):
+    """Calendar date n US trading days after the next session (weekends skipped)."""
+    d = TODAY
+    left = n
+    while left > 0:
+        d += dt.timedelta(days=1)
+        if d.weekday() < 5:
+            left -= 1
+    return d
+
+
+def pick_line(i, x, price=None):
+    lo, hi = x["entry"]
+    mid = (lo + hi) / 2
+    tgt, stp = mid * (1 + x["target"] / 100), mid * (1 - x["stop"] / 100)
+    days = x["h"]
+    when = ("Buy tonight" if price is None or price <= hi * 1.005 else f"Wait: buy only if it dips to {_money(hi)}")
+    return (f"{i}. *{x['tk']}* ({x['name']})\n"
+            f"   {when} at {_money(lo)}–{_money(hi)}\n"
+            f"   Sell at {_money(tgt)} (+{x['target']}%) · Stop {_money(stp)} (−{x['stop']}%)\n"
+            f"   Keep ~{days} trading days (sell by {trading_days_ahead(days):%d %b}) · typical +{x['med']}% · {x['win']}% past odds")
+
+
+def daily_summary(snap):
+    """Once a day after the 6 pm analysis: one list of today's best quick swing picks + long-term warnings."""
+    sent = _sent_state()
+    key = f"daily:{TODAY.isoformat()}"
+    if key in sent:
+        return
+    picks = [x for x in snap.get("swing", []) if x.get("tf") in SHORT_TFS and x.get("entry")]
+    picks.sort(key=lambda x: x.get("ppd", x["score"] / x["h"]), reverse=True)  # most profit per day first
+    out = [f"📊 *Season Watch: swing picks for tonight's US session* ({TODAY:%a %d %b})",
+           "Sorted by best profit per day (more profit in less time first)."]
+    if picks:
+        out += [pick_line(i, x) for i, x in enumerate(picks[:6], 1)]
+        out.append("If a stock opens above its buy range, wait." + ("" if ALERT_MODE == "list_only" else
+                   f" You'll get a message if one of the top {ZONE_TOP_N} dips back into range (max {MAX_DAILY} messages a day)."))
+    else:
+        out.append("No strong 1–2 week dip setups today. Waiting is fine; check again tomorrow.")
+    lt = snap.get("longterm") or {}
+    warn = [b["tk"] for b in _open_buys() if b.get("term") == "long" and (lt.get(b["tk"]) or {}).get("verdict") == "sell"]
+    if warn:
+        out.append("🔴 Long-term holdings with a weakening business: " + ", ".join(sorted(set(warn))) + ". Open the app for details.")
+    if send_whatsapp("\n\n".join(out) + "\n\n" + DISCLAIMER):
+        sent[key] = TODAY.isoformat()
+        _count_msg(sent)
+        for x in picks[:6]:
+            sent[f"listed:{x['tk']}:{TODAY.isoformat()}"] = TODAY.isoformat()
+        upsert("kv", [{"k": "alertsSent", "v": sent}], "k")
 
 if __name__ == "__main__":
     print("Mode:", MODE)
