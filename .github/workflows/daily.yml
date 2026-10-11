@@ -10,7 +10,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -21,4 +21,11 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          ALERT_MODE: ${{ vars.ALERT_MODE }}
+          MAX_DAILY_MESSAGES: ${{ vars.MAX_DAILY_MESSAGES }}
+          BUYZONE_TOP_N: ${{ vars.BUYZONE_TOP_N }}
+          QUIET_HOURS: ${{ vars.QUIET_HOURS }}
+          SCAN_SIZE: ${{ vars.SCAN_SIZE }}
           MODE: ${{ github.event.schedule == '*/10 13-21 * * 1-5' && 'prices' || 'full' }}
