@@ -1029,22 +1029,46 @@ DISCLAIMER = ("⚠️ Automated alert from past price patterns, not financial ad
 SHORT_TFS = ("days", "weeks")  # setups expected to play out within 1–2 weeks
 
 
-def send_whatsapp(text):
-    if not (WA_PHONE and WA_KEY):
-        print("  WhatsApp not set up (no CALLMEBOT secrets); message skipped:\n" + text)
-        return False
+GA_URL = (os.environ.get("GREENAPI_URL") or "").strip().rstrip("/")   # e.g. https://7105.api.greenapi.com
+GA_ID = (os.environ.get("GREENAPI_ID") or "").strip()                 # idInstance
+GA_TOKEN = (os.environ.get("GREENAPI_TOKEN") or "").strip()           # apiTokenInstance
+WA_TO = "".join(ch for ch in (os.environ.get("WHATSAPP_TO") or WA_PHONE) if ch.isdigit())  # her number, digits only
+
+
+def _send_greenapi(text):
+    url = f"{GA_URL or 'https://api.green-api.com'}/waInstance{GA_ID}/sendMessage/{GA_TOKEN}"
+    body = json.dumps({"chatId": f"{WA_TO}@c.us", "message": text[:4000]}).encode()
+    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+    resp = json.loads(urllib.request.urlopen(req, timeout=30).read().decode() or "{}")
+    if not resp.get("idMessage"):
+        raise RuntimeError(str(resp)[:200])
+
+
+def _send_callmebot(text):
     url = ("https://api.callmebot.com/whatsapp.php?phone=" + urllib.parse.quote(WA_PHONE)
            + "&text=" + urllib.parse.quote(text[:1500]) + "&apikey=" + urllib.parse.quote(WA_KEY))
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        body = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
-        ok = "ERROR" not in body.upper()
-        print("  WhatsApp sent" if ok else f"  WhatsApp error: {body[:200]}")
-        return ok
-    except Exception as exc:
-        print(f"  WhatsApp failed: {exc}")
-        return False
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    body = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
+    if "ERROR" in body.upper():
+        raise RuntimeError(body[:200])
 
+
+def send_whatsapp(text):
+    """Green-API if its secrets are set (preferred), otherwise CallMeBot."""
+    if GA_ID and GA_TOKEN and WA_TO:
+        sender, name = _send_greenapi, "Green-API"
+    elif WA_PHONE and WA_KEY:
+        sender, name = _send_callmebot, "CallMeBot"
+    else:
+        print("  WhatsApp not set up (no GREENAPI or CALLMEBOT secrets); message skipped:\n" + text)
+        return False
+    try:
+        sender(text)
+        print(f"  WhatsApp sent via {name}")
+        return True
+    except Exception as exc:
+        print(f"  WhatsApp via {name} failed: {exc}")
+        return False
 
 def in_quiet_hours():
     try:
