@@ -531,7 +531,10 @@ def run_prices():
     upsert("kv", [{"k": "pricesAt", "v": {"at": now_ist().strftime("%d %b %H:%M IST"),
                                            "iso": dt.datetime.now(dt.timezone.utc).isoformat()}},
                   {"k": "changes", "v": chg}], "k")
-    analyse_new_watch()
+    if full_running():
+        print("Full analysis in progress; new-watchlist checks wait for the next price run.")
+    else:
+        analyse_new_watch()
     try:
         live_alerts({r["tk"]: r["price"] for r in rows})
     except Exception as exc:
@@ -1230,7 +1233,34 @@ def daily_summary(snap):
             sent[f"listed:{x['tk']}:{TODAY.isoformat()}"] = TODAY.isoformat()
         upsert("kv", [{"k": "alertsSent", "v": sent}], "k")
 
+def full_running():
+    rows = sb("GET", "kv?k=eq.fullRunning&select=v") or []
+    at = rows[0]["v"].get("at") if rows else None
+    if not at:
+        return False
+    return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(at)).total_seconds() < 100 * 60
+
+
+def full_done_today():
+    rows = sb("GET", "kv?k=eq.lastFull&select=v") or []
+    return bool(rows) and rows[0]["v"].get("day") == TODAY.isoformat()
+
+
 if __name__ == "__main__":
     print("Mode:", MODE)
-    run_prices() if MODE == "prices" else run_full()
+    if MODE == "prices":
+        run_prices()
+    elif os.environ.get("EVENT") in ("schedule", "cron") and full_done_today():
+        print("Full analysis already done today; this extra slot is skipped.")
+    else:
+        upsert("kv", [{"k": "fullRunning", "v": {"at": dt.datetime.now(dt.timezone.utc).isoformat()}}], "k")
+        try:
+            run_full()
+        except Exception as exc:
+            send_whatsapp(f"⚠️ Season Watch: today's update failed ({type(exc).__name__}). "
+                          "It will retry in the next slot. If this repeats, check GitHub → Actions.")
+            raise
+        finally:
+            upsert("kv", [{"k": "fullRunning", "v": {"at": None}}], "k")
+        upsert("kv", [{"k": "lastFull", "v": {"day": TODAY.isoformat(), "at": now_ist().strftime("%H:%M IST")}}], "k")
     print("Done.")
