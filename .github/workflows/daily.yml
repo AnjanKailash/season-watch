@@ -2,10 +2,17 @@ name: Daily market refresh
 on:
   schedule:
     - cron: "*/10 13-21 * * 1-5"   # every 10 min in US market hours (Mon–Fri): latest prices only
-    - cron: "30 12 * * 1-5"        # 6:00 pm India time, Mon–Fri: full analysis before US market opens
-  workflow_dispatch: {}            # "Run workflow" button = full analysis
-concurrency:
-  group: refresh
+    - cron: "0 13 * * 1-5"         # 6:30 pm India time, Mon–Fri: full analysis + WhatsApp list
+    - cron: "40 13 * * 1-5"        # 7:10 pm backup (runs only if nothing ran yet today)
+    - cron: "20 14 * * 1-5"        # 7:50 pm backup
+  workflow_dispatch:               # "Run workflow" button, or the cron-job.org trigger
+    inputs:
+      source:
+        description: "manual or cron"
+        required: false
+        default: "manual"
+concurrency:                       # price checks and the full analysis queue separately,
+  group: ${{ github.event.schedule == '*/10 13-21 * * 1-5' && 'prices' || 'full' }}   # so a price check never cancels the daily run
   cancel-in-progress: false
 jobs:
   refresh:
@@ -32,4 +39,5 @@ jobs:
           BUYZONE_TOP_N: ${{ vars.BUYZONE_TOP_N }}
           QUIET_HOURS: ${{ vars.QUIET_HOURS }}
           SCAN_SIZE: ${{ vars.SCAN_SIZE }}
+          EVENT: ${{ inputs.source == 'cron' && 'cron' || github.event_name }}
           MODE: ${{ github.event.schedule == '*/10 13-21 * * 1-5' && 'prices' || 'full' }}
